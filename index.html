@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exotic TV — M3U Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #1a1d25;
+    --border: #2a2d35;
+    --pink: #f472b6;
+    --pink2: #ec4899;
+    --cyan: #22d3ee;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--pink);
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-star {
+    width: 22px;
+    height: 22px;
+    background: linear-gradient(135deg, var(--pink), var(--cyan));
+    clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+    flex-shrink: 0;
+  }
+
+  .header-sub {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .header-spacer { flex: 1; }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(244,114,182,0.12);
+    color: var(--pink);
+    border: 1px solid rgba(244,114,182,0.25);
+  }
+
+  /* LAYOUT */
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    height: calc(100vh - 57px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sidebar-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .channel-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--pink);
+  }
+
+  .channel-count span {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 6px;
+  }
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+
+  .search-box input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 13px;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .search-box input::placeholder { color: var(--muted); }
+  .search-icon { color: var(--muted); font-size: 14px; }
+
+  .channel-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .channel-list::-webkit-scrollbar { width: 4px; }
+  .channel-list::-webkit-scrollbar-track { background: transparent; }
+  .channel-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .channel-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border: 1px solid transparent;
+    margin-bottom: 2px;
+  }
+
+  .channel-item:hover { background: var(--surface2); }
+  .channel-item.active {
+    background: rgba(244,114,182,0.1);
+    border-color: rgba(244,114,182,0.3);
+  }
+
+  .ch-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  .ch-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--surface2), var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .ch-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+
+  .ch-info { flex: 1; min-width: 0; }
+
+  .ch-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+  }
+
+  .ch-group {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ch-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .channel-item:hover .ch-actions { opacity: 1; }
+
+  .icon-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: background 0.15s;
+    background: transparent;
+  }
+
+  .icon-btn:hover { background: var(--border); }
+  .icon-btn.danger:hover { background: rgba(248,113,113,0.2); }
+
+  .sidebar-actions {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+
+  /* MAIN */
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .main-toolbar {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--pink2), #a855f7);
+    color: white;
+  }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--pink); color: var(--pink); }
+
+  .btn-cyan {
+    background: rgba(34,211,238,0.1);
+    color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.25);
+  }
+  .btn-cyan:hover { background: rgba(34,211,238,0.2); }
+
+  .btn-danger {
+    background: rgba(248,113,113,0.1);
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+  .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+  .toolbar-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+  }
+
+  .toolbar-spacer { flex: 1; }
+
+  /* PANELS */
+  .main-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* WELCOME */
+  .welcome-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 40px;
+  }
+
+  .welcome-star {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, var(--pink), var(--cyan));
+    clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+
+  .welcome-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+  }
+
+  .welcome-sub {
+    color: var(--muted);
+    text-align: center;
+    font-size: 14px;
+    max-width: 420px;
+    line-height: 1.7;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 40px 60px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+
+  .drop-zone:hover, .drop-zone.dragging {
+    border-color: var(--pink);
+    background: rgba(244,114,182,0.05);
+  }
+
+  .drop-zone .drop-icon { font-size: 36px; margin-bottom: 12px; }
+  .drop-zone p { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .drop-zone strong { color: var(--pink); }
+
+  /* EDITOR PANEL */
+  .editor-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .editor-panel::-webkit-scrollbar { width: 4px; }
+  .editor-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .form-card-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  input[type="text"], input[type="url"], textarea, select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--pink);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 70px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+
+  select option { background: var(--surface2); }
+
+  .logo-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-preview {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .logo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* RAW PANEL */
+  .raw-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .raw-toolbar {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .raw-editor {
+    flex: 1;
+    background: #080a0e;
+    border: none;
+    outline: none;
+    color: #a8b4c8;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 16px 20px;
+    resize: none;
+    line-height: 1.7;
+  }
+
+  /* PASTE MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 90%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .modal-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--pink);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  /* EMPTY */
+  .empty-list {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .empty-list .e-icon { font-size: 32px; margin-bottom: 10px; }
+
+  /* NEW CHANNEL FORM inline */
+  .new-ch-form {
+    background: rgba(244,114,182,0.07);
+    border: 1px dashed rgba(244,114,182,0.3);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .new-ch-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .new-ch-row input {
+    flex: 1;
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--pink); border-bottom-color: var(--pink); }
+
+  /* hidden */
+  .hidden { display: none !important; }
+
+  input[type="file"] { display: none; }
+
+  /* Drag handle */
+  .drag-handle {
+    cursor: grab;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 2px;
+  }
+
+  .channel-item.dragging-item {
+    opacity: 0.4;
+    border: 1px dashed var(--pink);
+  }
+
+  .channel-item.drag-over {
+    border-top: 2px solid var(--cyan);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-star"></div>
+    Exotic TV
+  </div>
+  <span class="header-sub">M3U Editor</span>
+  <div class="header-spacer"></div>
+  <span class="badge">Pink Paradise</span>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-title">Playlist</div>
+      <div class="channel-count" id="chCount">0 <span>chaînes</span></div>
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="Rechercher une chaîne…" id="searchInput" oninput="filterChannels()">
+      </div>
+    </div>
+
+    <div class="channel-list" id="channelList">
+      <div class="empty-list">
+        <div class="e-icon">📂</div>
+        Importe une playlist M3U<br>pour commencer
+      </div>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="showNewForm()">＋ Chaîne</button>
+      <button class="btn btn-secondary" onclick="sortChannels()">⇅</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="main-toolbar">
+      <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">📁 Ouvrir M3U</button>
+      <input type="file" id="fileInput" accept=".m3u,.m3u8" onchange="loadFile(event)">
+      <button class="btn btn-secondary" onclick="openPasteModal()">📋 Coller M3U</button>
+      <button class="btn btn-cyan" onclick="openUrlModal()">🔗 Charger URL</button>
+      <div class="toolbar-sep"></div>
+      <button class="btn btn-cyan" onclick="downloadM3U()">⬇️ Exporter M3U</button>
+      <button class="btn btn-cyan" onclick="copyM3U()">📋 Copier M3U</button>
+      <div class="toolbar-spacer"></div>
+      <button class="btn btn-danger" onclick="clearAll()">🗑 Tout vider</button>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('editor')" id="tab-editor">✏️ Éditeur</div>
+      <div class="tab" onclick="switchTab('raw')" id="tab-raw">📄 Brut M3U</div>
+    </div>
+
+    <div class="main-content">
+
+      <!-- WELCOME -->
+      <div class="welcome-panel" id="welcomePanel">
+        <div class="welcome-star"></div>
+        <div class="welcome-title">Exotic TV M3U Editor</div>
+        <div class="welcome-sub">
+          Importe ta playlist M3U via un fichier ou colle le contenu directement.<br>
+          Édite, réorganise, ajoute des chaînes, puis exporte.
+        </div>
+        <div class="drop-zone" id="dropZone"
+          ondragover="onDragOver(event)"
+          ondragleave="onDragLeave(event)"
+          ondrop="onDrop(event)"
+          onclick="document.getElementById('fileInput').click()">
+          <div class="drop-icon">📺</div>
+          <strong>Glisse ton fichier M3U ici</strong>
+          <p>ou clique pour ouvrir</p>
+        </div>
+        <button class="btn btn-cyan" style="align-self:center" onclick="openUrlModal()">🔗 Charger depuis une URL GitHub Pages</button>
+      </div>
+
+      <!-- EDITOR TAB -->
+      <div class="editor-panel hidden" id="editorPanel">
+        <div id="editorForm">
+          <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">
+            ← Sélectionne une chaîne pour l'éditer
+          </div>
+        </div>
+      </div>
+
+      <!-- RAW TAB -->
+      <div class="raw-panel hidden" id="rawPanel">
+        <div class="raw-toolbar">
+          <span>📄 Aperçu M3U brut</span>
+          <div style="flex:1"></div>
+          <span id="rawLineCount">0 lignes</span>
+        </div>
+        <textarea class="raw-editor" id="rawEditor" readonly></textarea>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- URL MODAL -->
+<div class="modal-overlay hidden" id="urlModal">
+  <div class="modal">
+    <div class="modal-title">🔗 Charger depuis une URL</div>
+    <p style="color:var(--muted);font-size:13px;line-height:1.6">Colle l'URL publique de ton fichier M3U (GitHub Pages, raw GitHub, etc.)</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:12px;color:var(--muted)">URL du fichier M3U</label>
+      <input type="url" id="urlInput" placeholder="https://ton-site.github.io/playlist.m3u" style="font-family:'Space Mono',monospace;font-size:13px">
+    </div>
+    <div id="urlStatus" style="font-size:12px;font-family:'Space Mono',monospace;min-height:18px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeUrlModal()">Annuler</button>
+      <button class="btn btn-primary" id="urlFetchBtn" onclick="fetchFromUrl()">⬇️ Charger</button>
+    </div>
+  </div>
+</div>
+
+<!-- PASTE MODAL -->
+<div class="modal-overlay hidden" id="pasteModal">
+  <div class="modal">
+    <div class="modal-title">📋 Coller une playlist M3U</div>
+    <textarea id="pasteArea" style="min-height:200px;font-family:'Space Mono',monospace;font-size:12px" placeholder="#EXTM3U&#10;#EXTINF:-1 tvg-name=&quot;Ma Chaîne&quot; tvg-logo=&quot;https://...&quot; group-title=&quot;Groupe&quot;,Ma Chaîne&#10;https://stream.example.com/live"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closePasteModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="loadPaste()">Importer</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW CHANNEL MODAL -->
+<div class="modal-overlay hidden" id="newChModal">
+  <div class="modal">
+    <div class="modal-title">➕ Nouvelle chaîne</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nom *</label>
+        <input type="text" id="nc_name" placeholder="Palmi Océan TV 🌊">
+      </div>
+      <div class="form-group">
+        <label>Groupe</label>
+        <input type="text" id="nc_group" placeholder="Pink Paradise">
+      </div>
+      <div class="form-group full">
+        <label>URL du stream *</label>
+        <input type="url" id="nc_url" placeholder="https://archive.org/download/...">
+      </div>
+      <div class="form-group full">
+        <label>Logo URL</label>
+        <input type="url" id="nc_logo" placeholder="https://...">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('newChModal').classList.add('hidden')">Annuler</button>
+      <button class="btn btn-primary" onclick="addNewChannel()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let channels = [];
+let selectedIndex = -1;
+let dragSrc = -1;
+let currentTab = 'editor';
+
+// Exotic TV default emojis by channel name keywords
+const emojiMap = { 'océan':'🌊','ocean':'🌊','winter':'❄️','summer':'☀️','météo':'🌤️','meteo':'🌤️','sport':'⚽','music':'🎵','news':'📰','kids':'🧸','gaming':'🎮' };
+
+function getEmoji(name) {
+  const n = (name||'').toLowerCase();
+  for (const [k,v] of Object.entries(emojiMap)) if (n.includes(k)) return v;
+  return '📺';
+}
+
+// ─── PARSE M3U ────────────────────────────────────────────────
+function parseM3U(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const result = [];
+  let current = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('#EXTM3U')) continue;
+    if (line.startsWith('#EXTINF')) {
+      const nameMatch = line.match(/,(.+)$/);
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const groupMatch = line.match(/group-title="([^"]*)"/);
+      const idMatch = line.match(/tvg-id="([^"]*)"/);
+      const langMatch = line.match(/tvg-language="([^"]*)"/);
+      const countryMatch = line.match(/tvg-country="([^"]*)"/);
+      current = {
+        name: nameMatch ? nameMatch[1].trim() : 'Sans nom',
+        logo: logoMatch ? logoMatch[1] : '',
+        group: groupMatch ? groupMatch[1] : '',
+        tvgId: idMatch ? idMatch[1] : '',
+        lang: langMatch ? langMatch[1] : '',
+        country: countryMatch ? countryMatch[1] : '',
+        url: '',
+        extras: line
+      };
+    } else if (!line.startsWith('#') && line.length > 0) {
+      if (current) {
+        current.url = line;
+        result.push(current);
+        current = null;
+      }
+    }
+  }
+  return result;
+}
+
+// ─── SERIALIZE M3U ────────────────────────────────────────────
+function serializeM3U() {
+  let out = '#EXTM3U\n';
+  channels.forEach(ch => {
+    let extinf = `#EXTINF:-1`;
+    if (ch.tvgId) extinf += ` tvg-id="${ch.tvgId}"`;
+    extinf += ` tvg-name="${ch.name}"`;
+    if (ch.logo) extinf += ` tvg-logo="${ch.logo}"`;
+    if (ch.lang) extinf += ` tvg-language="${ch.lang}"`;
+    if (ch.country) extinf += ` tvg-country="${ch.country}"`;
+    if (ch.group) extinf += ` group-title="${ch.group}"`;
+    extinf += `,${ch.name}`;
+    out += extinf + '\n' + ch.url + '\n';
+  });
+  return out;
+}
+
+// ─── LOAD ─────────────────────────────────────────────────────
+function loadFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { importM3U(e.target.result); };
+  reader.readAsText(file);
+}
+
+function openPasteModal() { document.getElementById('pasteModal').classList.remove('hidden'); }
+function closePasteModal() { document.getElementById('pasteModal').classList.add('hidden'); }
+
+function loadPaste() {
+  const text = document.getElementById('pasteArea').value;
+  if (!text.trim()) return;
+  importM3U(text);
+  closePasteModal();
+}
+
+function importM3U(text) {
+  const parsed = parseM3U(text);
+  if (parsed.length === 0) { showToast('Aucune chaîne trouvée dans ce M3U', 'error'); return; }
+  channels = parsed;
+  selectedIndex = -1;
+  renderList();
+  hideWelcome();
+  updateRaw();
+  showToast(`✅ ${parsed.length} chaîne(s) importée(s)`);
+}
+
+// ─── DRAG & DROP FILE ─────────────────────────────────────────
+function onDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragging'); }
+function onDragLeave(e) { document.getElementById('dropZone').classList.remove('dragging'); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('dragging');
+  const file = e.dataTransfer.files[0];
+  if (file) { const r = new FileReader(); r.onload = ev => importM3U(ev.target.result); r.readAsText(file); }
+}
+
+// ─── RENDER LIST ──────────────────────────────────────────────
+function filterChannels() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  document.querySelectorAll('.channel-item').forEach(el => {
+    const name = el.dataset.name.toLowerCase();
+    el.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
+function renderList() {
+  const list = document.getElementById('channelList');
+  document.getElementById('chCount').innerHTML = `${channels.length} <span>chaîne${channels.length > 1 ? 's' : ''}</span>`;
+
+  if (channels.length === 0) {
+    list.innerHTML = '<div class="empty-list"><div class="e-icon">📂</div>Aucune chaîne</div>';
+    return;
+  }
+
+  list.innerHTML = channels.map((ch, i) => `
+    <div class="channel-item${selectedIndex === i ? ' active' : ''}"
+      data-name="${ch.name.replace(/"/g,'&quot;')}"
+      data-index="${i}"
+      onclick="selectChannel(${i})"
+      draggable="true"
+      ondragstart="dragStart(event,${i})"
+      ondragover="dragOver(event,${i})"
+      ondrop="dragDrop(event,${i})"
+      ondragend="dragEnd()">
+      <span class="drag-handle">⠿</span>
+      <span class="ch-num">${i+1}</span>
+      <div class="ch-icon">
+        ${ch.logo ? `<img src="${ch.logo}" onerror="this.parentElement.innerHTML='${getEmoji(ch.name)}'" alt="">` : getEmoji(ch.name)}
+      </div>
+      <div class="ch-info">
+        <div class="ch-name">${esc(ch.name)}</div>
+        <div class="ch-group">${esc(ch.group) || '<span style="color:#3a3d45">sans groupe</span>'}</div>
+      </div>
+      <div class="ch-actions">
+        <button class="icon-btn" onclick="event.stopPropagation();moveUp(${i})" title="Monter">↑</button>
+        <button class="icon-btn" onclick="event.stopPropagation();moveDown(${i})" title="Descendre">↓</button>
+        <button class="icon-btn danger" onclick="event.stopPropagation();deleteChannel(${i})" title="Supprimer">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── SELECT & EDIT ────────────────────────────────────────────
+function selectChannel(i) {
+  selectedIndex = i;
+  renderList();
+  showEditorForm(channels[i], i);
+  if (currentTab !== 'editor') switchTab('editor');
+}
+
+function showEditorForm(ch, i) {
+  const panel = document.getElementById('editorPanel');
+  panel.classList.remove('hidden');
+  document.getElementById('welcomePanel').classList.add('hidden');
+
+  document.getElementById('editorForm').innerHTML = `
+    <div class="form-card">
+      <div class="form-card-title">📺 Infos chaîne — <span style="color:var(--pink)">${esc(ch.name)}</span></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nom de la chaîne</label>
+          <input type="text" id="e_name" value="${esc(ch.name)}" oninput="liveUpdate(${i})">
+        </div>
+        <div class="form-group">
+          <label>Groupe</label>
+          <input type="text" id="e_group" value="${esc(ch.group)}" oninput="liveUpdate(${i})">
+        </div>
+        <div class="form-group full">
+          <label>URL du stream</label>
+          <input type="url" id="e_url" value="${esc(ch.url)}" oninput="liveUpdate(${i})">
+        </div>
+        <div class="form-group full">
+          <div class="logo-preview-row">
+            <div class="logo-preview" id="logoPreview">
+              ${ch.logo ? `<img src="${ch.logo}" onerror="this.parentElement.innerHTML='${getEmoji(ch.name)}'" alt="">` : getEmoji(ch.name)}
+            </div>
+            <div style="flex:1">
+              <label>Logo URL</label>
+              <input type="url" id="e_logo" value="${esc(ch.logo)}" oninput="liveUpdate(${i}); updateLogoPreview()">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-card">
+      <div class="form-card-title">🔧 Métadonnées</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>TVG ID</label>
+          <input type="text" id="e_tvgid" value="${esc(ch.tvgId)}" oninput="liveUpdate(${i})">
+        </div>
+        <div class="form-group">
+          <label>Langue</label>
+          <input type="text" id="e_lang" value="${esc(ch.lang)}" placeholder="fr, en…" oninput="liveUpdate(${i})">
+        </div>
+        <div class="form-group">
+          <label>Pays</label>
+          <input type="text" id="e_country" value="${esc(ch.country)}" placeholder="FR, US…" oninput="liveUpdate(${i})">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;padding:4px 0">
+      <button class="btn btn-danger" onclick="deleteChannel(${i})">🗑 Supprimer</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-secondary" onclick="moveUp(${i})">↑ Monter</button>
+      <button class="btn btn-secondary" onclick="moveDown(${i})">↓ Descendre</button>
+    </div>
+  `;
+}
+
+function liveUpdate(i) {
+  channels[i] = {
+    ...channels[i],
+    name: document.getElementById('e_name').value,
+    group: document.getElementById('e_group').value,
+    url: document.getElementById('e_url').value,
+    logo: document.getElementById('e_logo').value,
+    tvgId: document.getElementById('e_tvgid')?.value || channels[i].tvgId,
+    lang: document.getElementById('e_lang')?.value || channels[i].lang,
+    country: document.getElementById('e_country')?.value || channels[i].country,
+  };
+  updateRaw();
+  const item = document.querySelector(`.channel-item[data-index="${i}"]`);
+  if (item) {
+    item.dataset.name = channels[i].name;
+    item.querySelector('.ch-name').textContent = channels[i].name;
+    item.querySelector('.ch-group').textContent = channels[i].group || '';
+    const icon = item.querySelector('.ch-icon');
+    if (channels[i].logo) {
+      icon.innerHTML = `<img src="${channels[i].logo}" onerror="this.parentElement.innerHTML='${getEmoji(channels[i].name)}'" alt="">`;
+    } else {
+      icon.textContent = getEmoji(channels[i].name);
+    }
+  }
+  document.getElementById('chCount').innerHTML = `${channels.length} <span>chaîne${channels.length>1?'s':''}</span>`;
+}
+
+function updateLogoPreview() {
+  const url = document.getElementById('e_logo').value;
+  const prev = document.getElementById('logoPreview');
+  if (url) {
+    prev.innerHTML = `<img src="${url}" onerror="this.parentElement.textContent='❌'" alt="">`;
+  } else {
+    prev.textContent = '📺';
+  }
+}
+
+// ─── CHANNEL ACTIONS ──────────────────────────────────────────
+function deleteChannel(i) {
+  channels.splice(i, 1);
+  if (selectedIndex === i) {
+    selectedIndex = -1;
+    document.getElementById('editorForm').innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;margin-top:40px">← Sélectionne une chaîne pour l'éditer</div>`;
+  } else if (selectedIndex > i) {
+    selectedIndex--;
+  }
+  renderList();
+  updateRaw();
+  showToast('🗑 Chaîne supprimée');
+}
+
+function moveUp(i) {
+  if (i === 0) return;
+  [channels[i], channels[i-1]] = [channels[i-1], channels[i]];
+  if (selectedIndex === i) selectedIndex--;
+  else if (selectedIndex === i-1) selectedIndex++;
+  renderList();
+  updateRaw();
+}
+
+function moveDown(i) {
+  if (i === channels.length - 1) return;
+  [channels[i], channels[i+1]] = [channels[i+1], channels[i]];
+  if (selectedIndex === i) selectedIndex++;
+  else if (selectedIndex === i+1) selectedIndex--;
+  renderList();
+  updateRaw();
+}
+
+function sortChannels() {
+  channels.sort((a,b) => a.name.localeCompare(b.name));
+  selectedIndex = -1;
+  renderList();
+  updateRaw();
+  showToast('⇅ Trié par ordre alphabétique');
+}
+
+function clearAll() {
+  if (!confirm('Vider toute la playlist ?')) return;
+  channels = [];
+  selectedIndex = -1;
+  renderList();
+  document.getElementById('welcomePanel').classList.remove('hidden');
+  document.getElementById('editorPanel').classList.add('hidden');
+  updateRaw();
+  showToast('🗑 Playlist vidée');
+}
+
+// ─── NEW CHANNEL ──────────────────────────────────────────────
+function showNewForm() {
+  document.getElementById('nc_name').value = '';
+  document.getElementById('nc_group').value = '';
+  document.getElementById('nc_url').value = '';
+  document.getElementById('nc_logo').value = '';
+  document.getElementById('newChModal').classList.remove('hidden');
+}
+
+function addNewChannel() {
+  const name = document.getElementById('nc_name').value.trim();
+  const url = document.getElementById('nc_url').value.trim();
+  if (!name || !url) { showToast('Nom et URL obligatoires', 'error'); return; }
+  const ch = {
+    name,
+    url,
+    group: document.getElementById('nc_group').value.trim(),
+    logo: document.getElementById('nc_logo').value.trim(),
+    tvgId: '', lang: '', country: ''
+  };
+  channels.push(ch);
+  selectedIndex = channels.length - 1;
+  renderList();
+  hideWelcome();
+  updateRaw();
+  document.getElementById('newChModal').classList.add('hidden');
+  selectChannel(selectedIndex);
+  showToast('✅ Chaîne ajoutée');
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────
+function downloadM3U() {
+  if (channels.length === 0) { showToast('Aucune chaîne à exporter', 'error'); return; }
+  const blob = new Blob([serializeM3U()], {type: 'application/x-mpegurl'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'exotic-tv-playlist.m3u';
+  a.click();
+  showToast('⬇️ Fichier M3U téléchargé');
+}
+
+function copyM3U() {
+  if (channels.length === 0) { showToast('Aucune chaîne', 'error'); return; }
+  navigator.clipboard.writeText(serializeM3U()).then(() => showToast('📋 M3U copié dans le presse-papier'));
+}
+
+// ─── RAW ──────────────────────────────────────────────────────
+function updateRaw() {
+  const txt = serializeM3U();
+  document.getElementById('rawEditor').value = txt;
+  const lines = txt.split('\n').length;
+  document.getElementById('rawLineCount').textContent = `${lines} lignes`;
+}
+
+// ─── TABS ─────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-editor').classList.toggle('active', tab === 'editor');
+  document.getElementById('tab-raw').classList.toggle('active', tab === 'raw');
+
+  const welcome = document.getElementById('welcomePanel');
+  const editor = document.getElementById('editorPanel');
+  const raw = document.getElementById('rawPanel');
+
+  if (tab === 'raw') {
+    welcome.classList.add('hidden');
+    editor.classList.add('hidden');
+    raw.classList.remove('hidden');
+    updateRaw();
+  } else {
+    raw.classList.add('hidden');
+    if (channels.length > 0) {
+      editor.classList.remove('hidden');
+      welcome.classList.add('hidden');
+    } else {
+      welcome.classList.remove('hidden');
+      editor.classList.add('hidden');
+    }
+  }
+}
+
+function hideWelcome() {
+  document.getElementById('welcomePanel').classList.add('hidden');
+  document.getElementById('editorPanel').classList.remove('hidden');
+}
+
+// ─── DRAG & DROP LIST ─────────────────────────────────────────
+function dragStart(e, i) {
+  dragSrc = i;
+  e.currentTarget.classList.add('dragging-item');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function dragOver(e, i) {
+  e.preventDefault();
+  document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('drag-over'));
+  if (i !== dragSrc) e.currentTarget.classList.add('drag-over');
+}
+
+function dragDrop(e, i) {
+  e.preventDefault();
+  if (dragSrc === i) return;
+  const moved = channels.splice(dragSrc, 1)[0];
+  channels.splice(i, 0, moved);
+  selectedIndex = -1;
+  renderList();
+  updateRaw();
+}
+
+function dragEnd() {
+  document.querySelectorAll('.channel-item').forEach(el => {
+    el.classList.remove('dragging-item', 'drag-over');
+  });
+  dragSrc = -1;
+}
+
+// ─── TOAST ────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast${type === 'error' ? ' error' : ''} show`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── URL FETCH ────────────────────────────────────────────────
+function openUrlModal() {
+  document.getElementById('urlInput').value = '';
+  document.getElementById('urlStatus').textContent = '';
+  document.getElementById('urlFetchBtn').disabled = false;
+  document.getElementById('urlModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('urlInput').focus(), 100);
+}
+
+function closeUrlModal() {
+  document.getElementById('urlModal').classList.add('hidden');
+}
+
+async function fetchFromUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { setUrlStatus('⚠️ Entre une URL', 'var(--yellow)'); return; }
+
+  const btn = document.getElementById('urlFetchBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Chargement…';
+  setUrlStatus('Connexion en cours…', 'var(--muted)');
+
+  try {
+    // Try direct fetch first (works for GitHub Pages / CORS-open URLs)
+    let res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    if (!text.includes('#EXTM3U') && !text.includes('#EXTINF')) {
+      throw new Error('Le fichier ne semble pas être un M3U valide');
+    }
+    importM3U(text);
+    closeUrlModal();
+  } catch (err) {
+    // Try CORS proxy as fallback
+    setUrlStatus('Tentative via proxy CORS…', 'var(--muted)');
+    try {
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const res2 = await fetch(proxy, { cache: 'no-cache' });
+      if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+      const text2 = await res2.text();
+      if (!text2.includes('#EXTM3U') && !text2.includes('#EXTINF')) {
+        throw new Error('Le fichier ne semble pas être un M3U valide');
+      }
+      importM3U(text2);
+      closeUrlModal();
+    } catch (err2) {
+      setUrlStatus(`❌ Erreur : ${err2.message}`, 'var(--red)');
+      btn.disabled = false;
+      btn.textContent = '⬇️ Charger';
+    }
+  }
+}
+
+function setUrlStatus(msg, color) {
+  const el = document.getElementById('urlStatus');
+  el.textContent = msg;
+  el.style.color = color;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('urlModal').classList.contains('hidden')) {
+    fetchFromUrl();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Delete' && selectedIndex >= 0 && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    deleteChannel(selectedIndex);
+  }
+});
+</script>
+</body>
+</html>
