@@ -87,8 +87,8 @@ https://ncdn-live-bfm.pfd.sfr.net/shls/LIVE$BFM_TECHANDCO/index.m3u8?end=END&sta
 https://ncdn-live-bfm.pfd.sfr.net/shls/LIVE$BFM_TOULONVAR/index.m3u8?end=END&start=LIVE
 #EXTINF:-1 tvg-id="BFMTV.fr@SD" tvg-name="like Gecko) Chrome/108.0.0.0 Safari/537.36" group-title="News",BFM TV (1080p)" tvg-logo="https://i.imgur.com/YJCcczD.png" group-title="News",BFM TV (1080p)" tvg-logo="https://i.imgur.com/YJCcczD.png" group-title="News",like Gecko) Chrome/108.0.0.0 Safari/537.36" group-title="News",BFM TV (1080p)" tvg-logo="https://i.imgur.com/YJCcczD.png" group-title="News",like Gecko) Chrome/108.0.0.0 Safari/537.36" group-title="News",BFM TV (1080p)" tvg-logo="https://i.imgur.com/YJCcczD.png" group-title="News",BFM TV (1080p)" tvg-logo="https://i.imgur.com/YJCcczD.png" group-title="News",like Gecko) Chrome/108.0.0.0 Safari/537.36" group-title="News",BFM TV (1080p)
 https://ncdn-live-bfm.pfd.sfr.net/shls/LIVE$BFM_TV/index.m3u8?end=END&start=LIVE
-#EXTINF:-1 tvg-id="BrionnaisTV.fr@SD" tvg-name="Brionnais TV (720p)" tvg-logo="https://i.imgur.com/y94bhqX.jpg" group-title="General",Brionnais TV (720p)
-https://stream2.mandarine.media/brionnaistv/brionnaistv/playlist.m3u8
+#EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
+https://live.eu-north-1a.cf.dmcdn.net/sec2(dJkvQ_X065NGQgq8TKwY3HGH1qWwzVEd9QWtQ5iIJh8sSItjzEJNac_4-MPoJv0-XbA11zlQJc154X-_1S8znQCdBMNr-oIDMf56po-nmk3ra_dm48f70yF2NS1Q4S2d)/dm/3/x5gv5v0/d/live-720@60.m3u8
 #EXTINF:-1 tvg-id="Caillou.fr@SD" tvg-name="Caillou" tvg-logo="https://i.imgur.com/RgKaoe4.png" group-title="Undefined",Caillou
 https://do7nccdsswstc.cloudfront.net/v1/manifest/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-1aso0bc668saa/a5233c83-f772-4a81-959a-45ec7877ef61/5.m3u8
 #EXTINF:-1 tvg-id="Canal32.fr@SD" tvg-name="Canal 32 (1080p)" tvg-logo="https://i.imgur.com/lAsE6kN.png" group-title="General",Canal 32 (1080p)
@@ -317,4 +317,3 @@ https://d20oth1416y9a1.cloudfront.net/playlist/amg00711-zylofast-frequencenovela
 https://amg00711-zylo-amg00711c10-rakuten-fr-6731.playouts.now.amagi.tv/playlist.m3u8
 #EXTINF:-1 tvg-id="ScreamIN.fr@SD" tvg-name="Zylo ScreamIN (1080p)" tvg-logo="https://i.imgur.com/tGmKbil.png" group-title="Movies",Zylo ScreamIN (1080p)
 https://rakutenaa-zylo-screamin-rakuten-p11ej.amagi.tv/playlist/rakutenAA-zylo-screamin-rakuten/playlist.m3u8
-
