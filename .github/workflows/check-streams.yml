@@ -1,0 +1,29 @@
+name: 📺 Exotic TV — Stream Checker
+
+on:
+  schedule:
+    # Vérifie toutes les 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Lancement manuel depuis l'onglet Actions
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install deps
+        run: pip install requests
+
+      - name: 🔍 Check streams & notify Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python check_streams.py
