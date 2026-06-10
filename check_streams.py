@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Exotic TV — Stream Checker
-Vérifie chaque chaîne du palmi.m3u toutes les 30 minutes.
+Vérifie chaque chaîne de exotic-tv-playlist.m3utoutes les 30 minutes.
 Si une URL est morte, cherche automatiquement une URL de remplacement
 dans la base REPLACEMENT_DB et notifie le salon Discord du clan.
 """
@@ -13,7 +13,7 @@ import requests
 from datetime import datetime
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-M3U_URL    = "https://exoticsecurityweb.github.io/iptv-exotic/palmi.m3u"
+M3U_URL = "https://exoticsecurityweb.github.io/iptv-exotic/exotic-tv-playlist.m3u"
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
 TIMEOUT    = 10   # secondes max par test d'URL
 SLEEP_BTW  = 0.3  # pause entre chaque chaîne pour pas flood les serveurs
