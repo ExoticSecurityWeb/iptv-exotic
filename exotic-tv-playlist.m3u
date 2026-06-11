@@ -315,5 +315,5 @@ https://d20oth1416y9a1.cloudfront.net/playlist/amg00711-zylofast-frequencenovela
 https://amg00711-zylo-amg00711c10-rakuten-fr-6731.playouts.now.amagi.tv/playlist.m3u8
 #EXTINF:-1 tvg-id="ScreamIN.fr@SD" tvg-name="Zylo ScreamIN (1080p)" tvg-logo="https://i.imgur.com/tGmKbil.png" group-title="Movies",Zylo ScreamIN (1080p)
 https://rakutenaa-zylo-screamin-rakuten-p11ej.amagi.tv/playlist/rakutenAA-zylo-screamin-rakuten/playlist.m3u8
-#EXTINF:-1 tvg-name="Palmi Flims TV" group-title="PalmiTV",Palmi Flims TV
+#EXTINF:-1 tvg-name="Palmi Flims TV" tvg-logo="https://static.vecteezy.com/system/resources/previews/005/188/413/non_2x/cinema-logo-template-isolated-on-white-background-vector.jpg" group-title="PalmiTV",Palmi Flims TV
 https://zebi.senpai-stream.club/movie/1084242/premium-xfdm4u/master.m3u8
