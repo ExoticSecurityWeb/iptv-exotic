@@ -1,10 +1,9 @@
-#!/usr/bin/env python3#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
-Exotic TV — Stream Checker v2
-- Vérifie toutes les chaînes du M3U
-- Pour chaque chaîne morte, cherche d'abord dans REPLACEMENT_DB
-- Sinon cherche automatiquement dans iptv-org/fr.m3u par nom de chaîne
-- Notifie Discord avec l'URL de remplacement trouvée
+Exotic TV — Stream Checker v3
+- Matching iptv-org strict (nom exact uniquement, blacklist IP louches)
+- Timeout plus long pour Archive.org
+- Notifie Discord uniquement pour les vraies URLs mortes
 """
 
 import os
@@ -18,15 +17,19 @@ M3U_URL         = "https://exoticsecurityweb.github.io/iptv-exotic/exotic-tv-pla
 IPTV_ORG_FR_URL = "https://iptv-org.github.io/iptv/countries/fr.m3u"
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
 TIMEOUT         = 10
+TIMEOUT_ARCHIVE = 20   # Archive.org est plus lent
 SLEEP_BTW       = 0.3
+
+# IPs blacklistées UNIQUEMENT pour les remplacements auto iptv-org
+# (ces serveurs proposent France 2 pour toutes les chaînes — inutile)
+BLACKLIST_REPLACEMENT_HOSTS = [
+    "69.64.57.208",
+]
 
 # ─── BASE DE REMPLACEMENT MANUELLE ───────────────────────────────────────────
 #
 # FORMAT :
 #   "Nom exact de la chaîne dans le M3U": ["url1", "url2", ...]
-#
-# Le script teste les URLs dans l'ordre, la première qui répond est proposée.
-# Si aucune ne marche, il cherche automatiquement dans iptv-org/fr.m3u
 #
 # AJOUTER une chaîne :
 #   "Ma Chaîne": ["https://stream.url/playlist.m3u8"],
@@ -39,36 +42,24 @@ SLEEP_BTW       = 0.3
 #
 REPLACEMENT_DB = {
     # ── TNT France ────────────────────────────────────────────────────────────
-    "TF1": [
-        "https://viamotionhsi.netplus.ch/live/eds/tf1hd/browser-HLS8/tf1hd.m3u8",
-        "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/tf1/tf1-hd.m3u8",
-    ],
     "TF1 (720p)": [
-        "https://viamotionhsi.netplus.ch/live/eds/tf1hd/browser-HLS8/tf1hd.m3u8",
         "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/tf1/tf1-hd.m3u8",
     ],
-    "France 2": [
+    "France 2 (1080p)": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france2.m3u8",
     ],
     "France 3": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france3.m3u8",
     ],
-    "France 4": [
+    "France 4 (1080p)": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france4.m3u8",
     ],
-    "France 5": [
+    "France 5 (1080p)": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france5.m3u8",
     ],
-    "M6": [
-        "https://lbcdn.6cloud.fr/resource/m6web/l/m6_hls_sd_short_q2hyb21h.m3u8?groups[]=m6web-live-m6_ext",
-        "https://shls-m6-france-prod-dub.shahid.net/out/v1/c8a9f6e000cd4ebaa4d2fc7d18c15988/index.m3u8",
-    ],
     "M6 (720p) [Geo-blocked] [Geo-Blocked]": [
+        "https://origin-m6web.live.6cloud.fr/out/v1/6play/6play-m6/cmaf_q2hyb21h/hls-short-sd.m3u8",
         "https://lbcdn.6cloud.fr/resource/m6web/l/m6_hls_sd_short_q2hyb21h.m3u8?groups[]=m6web-live-m6_ext",
-        "https://shls-m6-france-prod-dub.shahid.net/out/v1/c8a9f6e000cd4ebaa4d2fc7d18c15988/index.m3u8",
-    ],
-    "Arte": [
-        "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/arte.m3u8",
     ],
     "Arte (720p) [Geo-blocked]": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/arte.m3u8",
@@ -76,19 +67,15 @@ REPLACEMENT_DB = {
     "Arte HD (1080p)": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/arte.m3u8",
     ],
-    "W9": [
-        "https://lbcdn.6cloud.fr/resource/m6web/l/w9_hls_sd_short_q2hyb21h.m3u8?groups[]=m6web-live-w9_ext",
-        "https://viamotionhsi.netplus.ch/live/eds/w9/browser-HLS8/w9.m3u8",
-    ],
     "W9 (720p) [Geo-blocked] [Geo-Blocked]": [
+        "https://origin-m6web.live.6cloud.fr/out/v1/6play/6play-w9/cmaf_q2hyb21h/hls-short-sd.m3u8",
         "https://lbcdn.6cloud.fr/resource/m6web/l/w9_hls_sd_short_q2hyb21h.m3u8?groups[]=m6web-live-w9_ext",
     ],
     "C Star (720p) [Geo-Blocked]": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cstar.m3u8",
-        "https://viamotionhsi.netplus.ch/live/eds/d17/browser-HLS8/d17.m3u8",
     ],
     "Gulli (720p) [Geo-Blocked]": [
-        "https://lbcdn.6cloud.fr/resource/m6web/l/gulli_hls_sd_short_q2hyb21h.m3u8?groups[]=m6web-live-gulli_ext",
+        "https://origin-m6web.live.6cloud.fr/out/v1/6play/6play-gulli/cmaf_q2hyb21h/hls-short-sd.m3u8",
     ],
     "CNews (1080p) [Geo-Blocked]": [
         "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cnews.m3u8",
@@ -97,7 +84,7 @@ REPLACEMENT_DB = {
         "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/canalplus/canalplusclair-hd.m3u8",
     ],
     "TF1 HD (720p) [Geo-Blocked]": [
-        "https://viamotionhsi.netplus.ch/live/eds/tf1hd/browser-HLS8/tf1hd.m3u8",
+        "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/tf1/tf1-hd.m3u8",
     ],
     "TF1 Series Films (1080p) [Geo-Blocked]": [
         "https://viamotionhsi.netplus.ch/live/eds/hd1/browser-HLS8/hd1.m3u8",
@@ -141,16 +128,26 @@ REPLACEMENT_DB = {
     "Euronews French HD (720p) [Geo-Blocked]": [
         "https://euronews-live-fre-fr.fast.rakuten.tv/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6564/bitok/e/26032/euronews-fr.m3u8",
     ],
-    # ── Info ──────────────────────────────────────────────────────────────────
-    "BFM2 (1080p)": [
-        "https://ncdn-live-bfm.pfd.sfr.net/shls/LIVE$BFM2/index.m3u8?start=LIVE&end=END",
+    "L'Equipe (1080p)": [
+        "https://dq37unyetkpcz.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-m04j89j7k5gtp/LEquipe_FR.m3u8",
     ],
     "Public Senat 24/24": [
         "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/publicsenat/publicsenat-dm.m3u8",
     ],
-    "L'Equipe (1080p)": [
-        "https://dq37unyetkpcz.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-m04j89j7k5gtp/LEquipe_FR.m3u8",
-        "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/lequipe/lequipe.m3u8",
+    "BFM2 (1080p)": [
+        "https://ncdn-live-bfm.pfd.sfr.net/shls/LIVE$BFM2/index.m3u8?start=LIVE&end=END",
+    ],
+    "TV5Monde France Belgique Suisse Monaco (1080p) [Geo-blocked]": [
+        "https://ott.tv5monde.com/Content/HLS/Live/channel(fbs)/index.m3u8",
+    ],
+    "TV5Monde France Belgium Switzerland Monaco HD (720p) [Geo-Blocked]": [
+        "https://ott.tv5monde.com/Content/HLS/Live/channel(fbs)/index.m3u8",
+    ],
+    "TiVi5 Monde [Geo-blocked]": [
+        "https://ott.tv5monde.com/Content/HLS/Live/channel(tivi5)/index.m3u8",
+    ],
+    "TV5Monde Info (1080p) [Geo-blocked]": [
+        "https://ott.tv5monde.com/Content/HLS/Live/channel(info)/index.m3u8",
     ],
 }
 
@@ -167,7 +164,7 @@ def parse_m3u(text):
             group_m = re.search(r'group-title="([^"]*)"', line)
             id_m    = re.search(r'tvg-id="([^"]*)"', line)
             raw_name = name_m.group(1).strip() if name_m else ''
-            # Ignorer les lignes avec un nom cassé (contient User-Agent etc.)
+            # Ignorer les lignes avec nom cassé (User-Agent mélangé)
             if 'Safari/' in raw_name or 'Chrome/' in raw_name or len(raw_name) > 80:
                 current = None
                 continue
@@ -182,43 +179,39 @@ def parse_m3u(text):
             current['url'] = line
             channels.append(current)
             current = None
-        elif line.startswith('#') and current is None:
-            pass  # ligne malformée, on ignore
     return channels
 
 # ─── CHARGER IPTV-ORG FR ─────────────────────────────────────────────────────
 def load_iptv_org_fr():
-    """Charge iptv-org/fr.m3u et retourne un dict nom_normalisé -> url"""
-    print("📡 Chargement iptv-org/fr.m3u pour les remplacements auto…")
+    """Charge iptv-org/fr.m3u et retourne un dict nom_exact -> url"""
+    print("📡 Chargement iptv-org/fr.m3u…")
     try:
         r = requests.get(IPTV_ORG_FR_URL, timeout=20)
         r.raise_for_status()
         channels = parse_m3u(r.text)
         db = {}
         for ch in channels:
-            key = normalize_name(ch['name'])
-            db[key] = ch['url']
+            # Index par nom exact (lowercase) uniquement
+            key = ch['name'].lower().strip()
+            if not is_blacklisted(ch['url']):
+                db[key] = ch['url']
         print(f"✅ {len(db)} chaînes FR chargées depuis iptv-org\n")
         return db
     except Exception as e:
         print(f"⚠️ Impossible de charger iptv-org : {e}\n")
         return {}
 
-def normalize_name(name):
-    """Normalise un nom de chaîne pour comparaison floue"""
-    n = name.lower()
-    # Enlève les suffixes courants
-    for s in ['(720p)', '(1080p)', '(288p)', '(576p)', '(180p)', '(540p)',
-              '[geo-blocked]', '[geo-blocked]', '[not 24/7]', '[geo-blocked]',
-              'hd', 'sd', 'french', 'france', 'fr']:
-        n = n.replace(s, '')
-    # Enlève les doublons de geo-blocked
-    n = re.sub(r'\[.*?\]', '', n)
-    n = re.sub(r'\s+', ' ', n).strip()
-    return n
+def is_blacklisted(url):
+    """Vérifie si une URL provient d'un hôte blacklisté pour les remplacements auto"""
+    for host in BLACKLIST_REPLACEMENT_HOSTS:
+        if host in url:
+            return True
+    return False
 
 # ─── CHECK URL ────────────────────────────────────────────────────────────────
-def check_url(url):
+def check_url(url, timeout=None):
+    if timeout is None:
+        timeout = TIMEOUT_ARCHIVE if 'archive.org' in url else TIMEOUT
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': '*/*',
@@ -226,10 +219,10 @@ def check_url(url):
         'Referer': 'https://exoticsecurityweb.github.io/',
     }
     try:
-        r = requests.head(url, timeout=TIMEOUT, headers=headers, allow_redirects=True)
+        r = requests.head(url, timeout=timeout, headers=headers, allow_redirects=True)
         if r.status_code < 400:
             return True, r.status_code, None
-        r = requests.get(url, timeout=TIMEOUT, headers=headers, allow_redirects=True, stream=True)
+        r = requests.get(url, timeout=timeout, headers=headers, allow_redirects=True, stream=True)
         r.close()
         if r.status_code < 400:
             return True, r.status_code, None
@@ -246,7 +239,7 @@ def find_replacement(channel, iptv_org_db):
     dead_url = channel['url']
     name = channel['name']
 
-    # 1. Cherche dans REPLACEMENT_DB par nom exact
+    # 1. REPLACEMENT_DB manuelle par nom exact
     candidates = REPLACEMENT_DB.get(name, [])
     for url in candidates:
         if url.strip() == dead_url.strip():
@@ -256,10 +249,13 @@ def find_replacement(channel, iptv_org_db):
             return url, "DB manuelle"
         time.sleep(0.3)
 
-    # 2. Cherche dans iptv-org/fr par nom normalisé
-    key = normalize_name(name)
+    # 2. iptv-org par nom EXACT uniquement (pas de matching approximatif)
+    # Enlève juste les suffixes de qualité pour la comparaison
+    clean_name = re.sub(r'\s*[\(\[].*?[\)\]]\s*', '', name).strip().lower()
+    
     for org_key, org_url in iptv_org_db.items():
-        if key and key in org_key or org_key in key:
+        org_clean = re.sub(r'\s*[\(\[].*?[\)\]]\s*', '', org_key).strip()
+        if clean_name == org_clean and not is_blacklisted(org_url):
             if org_url.strip() == dead_url.strip():
                 continue
             ok, _, _ = check_url(org_url)
@@ -318,7 +314,7 @@ def build_embed(channel, error, replacement=None, source=None):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
     now = datetime.utcnow().strftime('%d/%m/%Y à %H:%M UTC')
-    print(f"\n🌴 Exotic TV Stream Checker v2 — {now}")
+    print(f"\n🌴 Exotic TV Stream Checker v3 — {now}")
     print("─" * 60)
 
     # Charger le M3U
@@ -334,7 +330,7 @@ def main():
                        "color": 0xf87171, "footer": {"text": "Exotic TV • Pink Paradise 🌴"}}])
         return
 
-    # Charger iptv-org/fr pour les remplacements auto
+    # Charger iptv-org/fr
     iptv_org_db = load_iptv_org_fr()
 
     # Tester chaque chaîne
@@ -378,7 +374,7 @@ def main():
         }])
         return
 
-    # Résumé global
+    # Résumé global Discord
     send_discord([{
         "title": "📺 Exotic TV — Rapport de veille",
         "description": (
