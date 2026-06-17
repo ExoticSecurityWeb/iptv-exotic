@@ -30,7 +30,7 @@ PARATV_REPO         = "Paradise-91/ParaTV"
 PARATV_STREAMS_DIR  = "streams"
 PLAYLIST_FILE       = "/exotic-tv-playlist.m3u"
 CACHE_FILE          = "tfx_cache.json"
-REPO                = "ExoticSecurityWeb/iptv-exotic"
+REPO                = "ExoticSecurityWeb.github.io/iptv-exotic"
 GITHUB_TOKEN        = os.environ.get("GITHUB_TOKEN", "")
 DISCORD_WEBHOOK_TFX = os.environ.get("DISCORD_WEBHOOK_TFX", "")
 
