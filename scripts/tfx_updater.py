@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Exotic TFX Auto-Updater v4.1
-- Nom exact confirmé : "TFX (1080p)" dans la playlist
-- Scan dynamique ParaTV
+Exotic TFX Auto-Updater v4.2
+- Fix décodage base64 playlist GitHub API
+- Détection TFX robuste
 - Discord fonctionnel
-- Logs détaillés pour GitHub Actions
 """
 
 import os
@@ -35,27 +34,22 @@ REPO                = "ExoticSecurityWeb/iptv-exotic"
 GITHUB_TOKEN        = os.environ.get("GITHUB_TOKEN", "")
 DISCORD_WEBHOOK_TFX = os.environ.get("DISCORD_WEBHOOK_TFX", "")
 
-# Nom exact tel qu'il apparaît dans la playlist (après la virgule du #EXTINF)
-# + variantes au cas où
 TFX_EXACT_NAMES = {
-    "TFX (1080p)",
-    "TFX (1080p) [Geo-Blocked]",
-    "TFX",
-    "TFX HD",
-    "TFX (720p)",
+    "tfx (1080p)",
+    "tfx (1080p) [geo-blocked]",
+    "tfx",
+    "tfx hd",
+    "tfx (720p)",
 }
 
-# Mots-clés pour détecter TFX dans les fichiers .m3u8 de ParaTV
-TFX_KEYWORDS = {"TFX", "NT1"}
-
-# HTTP
+TFX_KEYWORDS    = {"TFX", "NT1"}
 MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
 REQUEST_TIMEOUT = 20
 
 # ─── SESSION ─────────────────────────────────────────────────────────────────
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.1"})
+SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.2"})
 
 
 def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> requests.Response:
@@ -67,7 +61,7 @@ def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> request
             r = SESSION.get(url, headers=h, timeout=REQUEST_TIMEOUT)
             if r.status_code == 429:
                 wait = int(r.headers.get("Retry-After", delay))
-                log.warning(f"Rate limit GitHub — attente {wait}s")
+                log.warning(f"Rate limit — attente {wait}s")
                 time.sleep(wait)
                 continue
             return r
@@ -89,11 +83,33 @@ def gh_headers() -> dict:
 
 
 def github_get(path: str) -> dict:
-    r = fetch(f"https://api.github.com/repos/{REPO}/contents/{path}", headers=gh_headers())
+    r = fetch(
+        f"https://api.github.com/repos/{REPO}/contents/{path}",
+        headers=gh_headers()
+    )
     if r.status_code == 404:
         raise FileNotFoundError(f"Introuvable : {path}")
     r.raise_for_status()
     return r.json()
+
+
+def github_get_raw(path: str) -> str:
+    """
+    Télécharge le fichier via l'URL raw GitHub (pas l'API JSON).
+    Evite complètement le décodage base64 — on récupère le texte brut directement.
+    """
+    # Essai 1 : raw.githubusercontent.com
+    url = f"https://raw.githubusercontent.com/{REPO}/main/{path}"
+    r = fetch(url)
+    if r.ok:
+        r.encoding = "utf-8"
+        return r.text
+
+    # Essai 2 : API GitHub avec décodage manuel
+    data = github_get(path)
+    raw_b64 = data["content"]          # contient des \n tous les 60 chars
+    cleaned = raw_b64.replace("\n", "") # on retire uniquement les sauts de ligne base64
+    return base64.b64decode(cleaned).decode("utf-8", errors="replace")
 
 
 def github_put(path: str, content: str, sha: str | None, message: str) -> dict:
@@ -113,11 +129,6 @@ def github_put(path: str, content: str, sha: str | None, message: str) -> dict:
         raise RuntimeError("Conflit GitHub 409 — SHA obsolète, relance")
     r.raise_for_status()
     return r.json()
-
-
-def decode_content(data: dict) -> str:
-    raw = data["content"].replace("\n", "").replace(" ", "")
-    return base64.b64decode(raw).decode("utf-8", errors="replace")
 
 # ─── SCAN PARATV ─────────────────────────────────────────────────────────────
 def find_tfx_url() -> str:
@@ -181,14 +192,13 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
 
 # ─── PLAYLIST ────────────────────────────────────────────────────────────────
 def update_playlist(new_url: str) -> int:
-    """
-    Remplace l'URL de toutes les occurrences TFX dans la playlist.
-    Affiche les noms trouvés pour debug si aucun match.
-    """
-    log.info(f"📝 Lecture de {PLAYLIST_FILE}…")
-    data = github_get(PLAYLIST_FILE)
-    content = decode_content(data)
-    sha = data["sha"]
+    log.info(f"📝 Lecture de {PLAYLIST_FILE} via raw URL…")
+
+    # Lire via raw pour éviter tout problème de décodage base64
+    content = github_get_raw(PLAYLIST_FILE)
+
+    # On a besoin du SHA pour le PUT — on le récupère via l'API
+    sha = github_get(PLAYLIST_FILE)["sha"]
 
     lines = content.splitlines()
     new_lines = []
@@ -196,7 +206,7 @@ def update_playlist(new_url: str) -> int:
     count = 0
     trailing_newline = content.endswith("\n")
 
-    # Debug : collecter tous les noms de chaînes pour diagnostic
+    # Debug : collecter tous les noms
     all_names = []
 
     while i < len(lines):
@@ -206,11 +216,10 @@ def update_playlist(new_url: str) -> int:
             if m:
                 name = m.group(1).strip()
                 all_names.append(name)
-                # Match exact (insensible à la casse)
-                if name.lower() in {n.lower() for n in TFX_EXACT_NAMES}:
+                if name.lower() in TFX_EXACT_NAMES:
                     new_lines.append(line)
                     i += 1
-                    # Sauter les commentaires intermédiaires éventuels
+                    # Sauter les commentaires intermédiaires
                     while i < len(lines) and lines[i].startswith("#"):
                         new_lines.append(lines[i])
                         i += 1
@@ -229,15 +238,16 @@ def update_playlist(new_url: str) -> int:
 
     if count == 0:
         log.error("❌ Aucune chaîne TFX trouvée dans la playlist !")
-        log.error(f"   Noms cherchés : {sorted(TFX_EXACT_NAMES)}")
-        log.error("   Chaînes présentes dans la playlist :")
-        for n in all_names:
-            if "tf" in n.lower() or "tfx" in n.lower():
-                log.error(f"   → (possible TFX) «{n}»")
-        # Afficher les 30 premiers noms pour debug
-        log.info("   30 premiers noms de la playlist :")
-        for n in all_names[:30]:
-            log.info(f"   · {n}")
+        log.error(f"   Noms cherchés (insensible casse) : {sorted(TFX_EXACT_NAMES)}")
+        log.info(f"   Total chaînes dans la playlist : {len(all_names)}")
+        # Afficher tous les noms contenant "tf" pour aider
+        tf_names = [n for n in all_names if "tf" in n.lower()]
+        if tf_names:
+            log.info(f"   Noms contenant 'tf' : {tf_names}")
+        else:
+            log.info("   Aucun nom contenant 'tf' — 30 premiers noms :")
+            for n in all_names[:30]:
+                log.info(f"   · «{n}»")
         return 0
 
     new_content = "\n".join(new_lines)
@@ -254,8 +264,9 @@ def update_playlist(new_url: str) -> int:
 # ─── CACHE ───────────────────────────────────────────────────────────────────
 def load_cache() -> tuple[dict, str | None]:
     try:
-        data = github_get(CACHE_FILE)
-        return json.loads(decode_content(data)), data["sha"]
+        content = github_get_raw(CACHE_FILE)
+        sha = github_get(CACHE_FILE)["sha"]
+        return json.loads(content), sha
     except FileNotFoundError:
         log.info("Cache absent — sera créé après la première mise à jour")
         return {"last_url": "", "last_updated": "", "update_count": 0}, None
@@ -312,18 +323,17 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
                     "inline": True,
                 },
             ],
-            "footer": {"text": "Exotic TFX Auto-Updater v4.1 • 🌴 Pink Paradise"},
+            "footer": {"text": "Exotic TFX Auto-Updater v4.2 • 🌴 Pink Paradise"},
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }]
     }
 
     try:
         r = SESSION.post(DISCORD_WEBHOOK_TFX, json=payload, timeout=10)
-        # Discord renvoie 204 No Content = succès
         if r.status_code in (200, 204):
             log.info("✅ Discord notifié")
         else:
-            log.warning(f"Discord réponse inattendue : HTTP {r.status_code} — {r.text[:200]}")
+            log.warning(f"Discord HTTP {r.status_code} : {r.text[:200]}")
     except Exception as exc:
         log.warning(f"❌ Discord KO : {exc}")
 
@@ -342,12 +352,12 @@ def _check_config() -> None:
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 def main() -> None:
     log.info("─" * 55)
-    log.info(f"📺 Exotic TFX Auto-Updater v4.1 — {_now()}")
+    log.info(f"📺 Exotic TFX Auto-Updater v4.2 — {_now()}")
     log.info("─" * 55)
 
     _check_config()
 
-    # 1. Scanner ParaTV pour trouver la nouvelle URL
+    # 1. Scanner ParaTV
     try:
         new_url = find_tfx_url()
         log.info(f"🎯 URL TFX : {new_url[:80]}…")
@@ -355,7 +365,7 @@ def main() -> None:
         log.error(f"❌ Scan ParaTV échoué : {exc}")
         sys.exit(1)
 
-    # 2. Charger le cache
+    # 2. Cache
     cache, cache_sha = load_cache()
     last_url = cache.get("last_url", "")
 
@@ -374,10 +384,10 @@ def main() -> None:
         sys.exit(1)
 
     if count == 0:
-        log.error("❌ Aucun remplacement effectué")
+        log.error("❌ Aucun remplacement — arrêt")
         sys.exit(1)
 
-    # 5. Sauvegarder le cache
+    # 5. Cache
     cache["last_url"] = new_url
     cache["update_count"] = cache.get("update_count", 0) + 1
     save_cache(cache, cache_sha)
