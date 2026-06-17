@@ -504,54 +504,109 @@ function filterCh(q){
   renderList();
 }
 
+// ── HTTP → HTTPS PROXY (pour les URLs http:// sur GitHub Pages HTTPS) ────────
+function proxyUrl(url){
+  // Si l'URL est en http:// et qu'on est sur https://, on passe par un proxy
+  if(url.startsWith('http://') && location.protocol === 'https:'){
+    return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 // ── PLAY ──────────────────────────────────────────────────────
+let retryTmr=null, retryCount=0;
+const MAX_RETRY=3;
+
 function play(idx){
   const ch=channels[idx]; if(!ch) return;
   curIdx=idx;
+  retryCount=0;
+  clearTimeout(retryTmr);
+  _startPlay(ch);
+}
+
+function _startPlay(ch){
   const vid=g('vid');
+
+  // ① Vider immédiatement la vidéo — plus d'image fantôme de la chaîne précédente
+  if(hlsInst){hlsInst.destroy();hlsInst=null;}
+  vid.pause();
+  vid.removeAttribute('src');
+  vid.load(); // reset le buffer → écran noir immédiat
+
   g('splash').style.display='none';
   g('errBadge').style.display='none';
   vid.style.display='block';
   showBuf(true);
 
-  if(hlsInst){hlsInst.destroy();hlsInst=null;}
-  vid.pause(); vid.removeAttribute('src'); vid.load();
+  const src = proxyUrl(ch.url);
 
   if(Hls.isSupported()){
     hlsInst=new Hls({
-      enableWorker:true, lowLatencyMode:true,
-      maxBufferLength:30, maxMaxBufferLength:60,
-      fragLoadingTimeOut:20000, manifestLoadingTimeOut:20000,
+      enableWorker:true,
+      lowLatencyMode:true,
+      maxBufferLength:30,
+      maxMaxBufferLength:60,
+      fragLoadingTimeOut:20000,
+      manifestLoadingTimeOut:20000,
+      xhrSetup:(xhr)=>{ xhr.withCredentials=false; }
     });
-    hlsInst.loadSource(ch.url);
+    hlsInst.loadSource(src);
     hlsInst.attachMedia(vid);
-    hlsInst.on(Hls.Events.MANIFEST_PARSED,()=>{showBuf(false);vid.play().catch(()=>{});});
+    hlsInst.on(Hls.Events.MANIFEST_PARSED,()=>{
+      showBuf(false);
+      vid.play().catch(()=>{});
+    });
     hlsInst.on(Hls.Events.ERROR,(_,d)=>{
-      if(d.fatal){
+      if(!d.fatal) return;
+      if(d.type===Hls.ErrorTypes.NETWORK_ERROR && retryCount < MAX_RETRY){
+        // ② Retry automatique sur erreur réseau
+        retryCount++;
+        showToast(`⟳ Reconnexion… (${retryCount}/${MAX_RETRY})`);
+        retryTmr=setTimeout(()=>{
+          if(hlsInst){ hlsInst.startLoad(); }
+        }, 2000 * retryCount);
+      } else if(retryCount >= MAX_RETRY){
+        // ③ Fallback natif après échec HLS.js
+        hlsInst.destroy(); hlsInst=null;
+        showToast('HLS.js échoué, tentative native…');
+        _nativePlay(ch, ch.url);
+      } else {
+        hlsInst.destroy(); hlsInst=null;
         showBuf(false);
-        if(d.type===Hls.ErrorTypes.NETWORK_ERROR) hlsInst.startLoad();
-        else{hlsInst.destroy();hlsInst=null;g('errBadge').style.display='block';}
+        g('errBadge').style.display='block';
       }
     });
   } else if(vid.canPlayType('application/vnd.apple.mpegurl')){
-    vid.src=ch.url;
-    vid.addEventListener('canplay',()=>showBuf(false),{once:true});
-    vid.play().catch(()=>{});
+    // Safari / iOS natif
+    _nativePlay(ch, src);
   } else {
-    vid.src=ch.url;
-    vid.addEventListener('canplay',()=>showBuf(false),{once:true});
-    vid.play().catch(()=>{});
+    _nativePlay(ch, src);
   }
-  vid.onerror=()=>{showBuf(false);g('errBadge').style.display='block';};
 
   g('nowPlay').innerHTML=`<b>${e(ch.name)}</b>`;
   showOverlay(ch);
   renderList();
   setTimeout(()=>document.querySelector('.ch.active')?.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
   if(castSess) castCh(ch);
-
-  // On mobile: scroll to top so video is visible
   if(window.innerWidth<700) window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function _nativePlay(ch, src){
+  const vid=g('vid');
+  vid.src=src;
+  vid.addEventListener('canplay',()=>showBuf(false),{once:true});
+  vid.onerror=()=>{
+    if(retryCount < MAX_RETRY){
+      retryCount++;
+      showToast(`⟳ Reconnexion… (${retryCount}/${MAX_RETRY})`);
+      retryTmr=setTimeout(()=>_nativePlay(ch, src), 2000 * retryCount);
+    } else {
+      showBuf(false);
+      g('errBadge').style.display='block';
+    }
+  };
+  vid.play().catch(()=>{});
 }
 
 function showBuf(v){g('buf').style.display=v?'block':'none'}
@@ -593,32 +648,71 @@ function toggleFs(){
 }
 
 // ── CAST ──────────────────────────────────────────────────────
-window['__onGCastApiAvailable']=ok=>{if(ok)initCast()};
+window['__onGCastApiAvailable']=ok=>{
+  if(ok) initCast();
+  else showToast('Cast non disponible — utilise Chrome');
+};
+
 function initCast(){
-  if(!window.cast)return;
-  castCtx=cast.framework.CastContext.getInstance();
-  castCtx.setOptions({
-    receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-    autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
-  });
-  castCtx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED,()=>{
-    castSess=castCtx.getCurrentSession();
-    const btn=g('castBtn'), st=g('castSt');
-    if(castSess){btn.classList.add('on');btn.textContent='📡 On';st.classList.add('on');if(curIdx>=0)castCh(channels[curIdx]);}
-    else{btn.classList.remove('on');btn.textContent='Cast';st.classList.remove('on');}
-  });
+  if(!window.cast||!window.chrome?.cast) return;
+  try{
+    castCtx=cast.framework.CastContext.getInstance();
+    castCtx.setOptions({
+      receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+      autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+    });
+    castCtx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED,onCastState);
+    // Afficher le bouton Cast uniquement si disponible
+    g('castBtn').style.display='flex';
+  }catch(err){
+    console.warn('Cast init error:',err);
+  }
 }
+
+function onCastState(){
+  castSess=castCtx.getCurrentSession();
+  const btn=g('castBtn'), st=g('castSt');
+  if(castSess){
+    btn.classList.add('on');
+    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8.5A12.5 12.5 0 0 1 14.5 21"/><path d="M2 13a8 8 0 0 1 8 8"/><rect x="2" y="17" width="4" height="4" rx="1"/><line x1="22" y1="3" x2="2" y2="3"/></svg>📡 On';
+    st.classList.add('on');
+    if(curIdx>=0) castCh(channels[curIdx]);
+    showToast('📡 Connecté au Chromecast !');
+  } else {
+    btn.classList.remove('on');
+    btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8.5A12.5 12.5 0 0 1 14.5 21"/><path d="M2 13a8 8 0 0 1 8 8"/><rect x="2" y="17" width="4" height="4" rx="1"/><line x1="22" y1="3" x2="2" y2="3"/></svg>Cast';
+    st.classList.remove('on');
+  }
+}
+
 function toggleCast(){
-  if(typeof cast==='undefined'){showToast('Cast : utilise Chrome');return;}
-  castSess?castSess.endSession(true):castCtx.requestSession().catch(()=>{});
+  if(typeof cast==='undefined'||!castCtx){
+    showToast('Cast : ouvre dans Chrome sur Android/PC');
+    return;
+  }
+  if(castSess){
+    castSess.endSession(true);
+  } else {
+    castCtx.requestSession().catch(err=>{
+      if(err.code !== 'cancel') showToast('Erreur Cast : '+err.description);
+    });
+  }
 }
+
 function castCh(ch){
-  if(!castSess||!ch)return;
-  const mi=new chrome.cast.media.MediaInfo(ch.url,'application/x-mpegURL');
-  mi.metadata=new chrome.cast.media.GenericMediaMetadata();
-  mi.metadata.title=ch.name;
-  if(ch.logo)mi.metadata.images=[{url:ch.logo}];
-  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch(()=>showToast('Erreur Cast'));
+  if(!castSess||!ch) return;
+  try{
+    // Pour le Cast on utilise l'URL directe (pas de proxy — le Chromecast fetch lui-même)
+    const mi=new chrome.cast.media.MediaInfo(ch.url,'application/x-mpegURL');
+    mi.metadata=new chrome.cast.media.GenericMediaMetadata();
+    mi.metadata.title=ch.name;
+    if(ch.logo) mi.metadata.images=[{url:ch.logo}];
+    const req=new chrome.cast.media.LoadRequest(mi);
+    req.autoplay=true;
+    castSess.loadMedia(req).catch(err=>showToast('Erreur Cast media'));
+  }catch(err){
+    showToast('Erreur Cast');
+  }
 }
 
 // ── TOAST ─────────────────────────────────────────────────────
