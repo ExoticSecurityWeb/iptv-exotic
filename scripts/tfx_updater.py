@@ -4,6 +4,7 @@ Exotic TFX Auto-Updater v4.2
 - Fix décodage base64 playlist GitHub API
 - Détection TFX robuste
 - Discord fonctionnel
+- Détection automatique de la branche par défaut
 """
 
 import os
@@ -30,7 +31,7 @@ PARATV_REPO         = "Paradise-91/ParaTV"
 PARATV_STREAMS_DIR  = "streams"
 PLAYLIST_FILE       = "exotic-tv-playlist.m3u"
 CACHE_FILE          = "tfx_cache.json"
-REPO                = "ExoticSecurityWeb.github.io/iptv-exotic"
+REPO                = "ExoticSecurityWeb/iptv-exotic"
 GITHUB_TOKEN        = os.environ.get("GITHUB_TOKEN", "")
 DISCORD_WEBHOOK_TFX = os.environ.get("DISCORD_WEBHOOK_TFX", "")
 
@@ -47,9 +48,10 @@ MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
 REQUEST_TIMEOUT = 20
 
-# ─── SESSION ─────────────────────────────────────────────────────────────────
+# ─── SESSION + CACHE BRANCHE ──────────────────────────────────────────────────
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.2"})
+_DEFAULT_BRANCH_CACHE = None
 
 
 def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> requests.Response:
@@ -82,6 +84,28 @@ def gh_headers() -> dict:
     return h
 
 
+def get_default_branch() -> str:
+    """Récupère la branche par défaut du repo via l'API GitHub."""
+    global _DEFAULT_BRANCH_CACHE
+    if _DEFAULT_BRANCH_CACHE:
+        return _DEFAULT_BRANCH_CACHE
+    
+    try:
+        r = fetch(
+            f"https://api.github.com/repos/{REPO}",
+            headers=gh_headers()
+        )
+        r.raise_for_status()
+        _DEFAULT_BRANCH_CACHE = r.json()["default_branch"]
+        log.info(f"🔍 Branche par défaut détectée : {_DEFAULT_BRANCH_CACHE}")
+        return _DEFAULT_BRANCH_CACHE
+    except Exception as exc:
+        log.error(f"❌ Impossible de récupérer la branche par défaut : {exc}")
+        log.warning("⚠️ Utilisation de 'main' par défaut")
+        _DEFAULT_BRANCH_CACHE = "main"
+        return _DEFAULT_BRANCH_CACHE
+
+
 def github_get(path: str) -> dict:
     r = fetch(
         f"https://api.github.com/repos/{REPO}/contents/{path}",
@@ -98,18 +122,31 @@ def github_get_raw(path: str) -> str:
     Télécharge le fichier via l'URL raw GitHub (pas l'API JSON).
     Evite complètement le décodage base64 — on récupère le texte brut directement.
     """
+    default_branch = get_default_branch()
+    
     # Essai 1 : raw.githubusercontent.com
-    url = f"https://raw.githubusercontent.com/{REPO}/main/{path}"
-    r = fetch(url)
-    if r.ok:
-        r.encoding = "utf-8"
-        return r.text
+    url = f"https://raw.githubusercontent.com/{REPO}/{default_branch}/{path}"
+    log.debug(f"📥 Tentative raw.githubusercontent : {url}")
+    
+    try:
+        r = fetch(url)
+        if r.ok:
+            r.encoding = "utf-8"
+            log.debug(f"✅ Fichier récupéré via raw.githubusercontent")
+            return r.text
+    except Exception as exc:
+        log.warning(f"⚠️ Échec raw.githubusercontent ({exc}) — tentative API GitHub")
 
     # Essai 2 : API GitHub avec décodage manuel
-    data = github_get(path)
-    raw_b64 = data["content"]          # contient des \n tous les 60 chars
-    cleaned = raw_b64.replace("\n", "") # on retire uniquement les sauts de ligne base64
-    return base64.b64decode(cleaned).decode("utf-8", errors="replace")
+    try:
+        data = github_get(path)
+        raw_b64 = data["content"]
+        cleaned = raw_b64.replace("\n", "")
+        log.debug(f"✅ Fichier récupéré via API GitHub")
+        return base64.b64decode(cleaned).decode("utf-8", errors="replace")
+    except Exception as exc:
+        log.error(f"❌ Impossible de récupérer {path} : {exc}")
+        raise
 
 
 def github_put(path: str, content: str, sha: str | None, message: str) -> dict:
