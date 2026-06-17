@@ -28,4 +28,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DISCORD_WEBHOOK_TFX: ${{ secrets.DISCORD_WEBHOOK_TFX }}
-        run: python tfx_updater.py
+        run: python scripts/tfx_updater.py
