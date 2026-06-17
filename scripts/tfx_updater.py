@@ -28,7 +28,7 @@ log = logging.getLogger("tfx-updater")
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 PARATV_REPO         = "Paradise-91/ParaTV"
 PARATV_STREAMS_DIR  = "streams"
-PLAYLIST_FILE       = "/exotic-tv-playlist.m3u"
+PLAYLIST_FILE       = "exotic-tv-playlist.m3u"
 CACHE_FILE          = "tfx_cache.json"
 REPO                = "ExoticSecurityWeb.github.io/iptv-exotic"
 GITHUB_TOKEN        = os.environ.get("GITHUB_TOKEN", "")
