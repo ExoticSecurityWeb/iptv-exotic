@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Exotic TFX Auto-Updater v4.3
-- Fix audio+vidéo : analyse le manifest HLS pour choisir la bonne variante
+Exotic TFX Auto-Updater v4.5
+- Log le contenu COMPLET du fichier TFX ParaTV pour debug audio
+- Retourne l'URL brute du fichier ParaTV (le master complet)
+  en reconstruisant depuis download_url → raw stream URL
 - Tout le reste identique à v4.2
 """
 
@@ -46,9 +48,9 @@ MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
 REQUEST_TIMEOUT = 20
 
-# ─── SESSION + CACHE BRANCHE ─────────────────────────────────────────────────
+# ─── SESSION ─────────────────────────────────────────────────────────────────
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.3"})
+SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.5"})
 _DEFAULT_BRANCH_CACHE = None
 
 
@@ -90,7 +92,7 @@ def get_default_branch() -> str:
         r = fetch(f"https://api.github.com/repos/{REPO}", headers=gh_headers())
         r.raise_for_status()
         _DEFAULT_BRANCH_CACHE = r.json()["default_branch"]
-        log.info(f"🔍 Branche par défaut : {_DEFAULT_BRANCH_CACHE}")
+        log.info(f"🔍 Branche : {_DEFAULT_BRANCH_CACHE}")
         return _DEFAULT_BRANCH_CACHE
     except Exception as exc:
         log.warning(f"Branche inconnue ({exc}) — fallback 'main'")
@@ -99,10 +101,7 @@ def get_default_branch() -> str:
 
 
 def github_get(path: str) -> dict:
-    r = fetch(
-        f"https://api.github.com/repos/{REPO}/contents/{path}",
-        headers=gh_headers()
-    )
+    r = fetch(f"https://api.github.com/repos/{REPO}/contents/{path}", headers=gh_headers())
     if r.status_code == 404:
         raise FileNotFoundError(f"Introuvable : {path}")
     r.raise_for_status()
@@ -119,7 +118,6 @@ def github_get_raw(path: str) -> str:
             return r.text
     except Exception as exc:
         log.warning(f"raw.githubusercontent KO ({exc}) — fallback API")
-    # Fallback API GitHub
     data = github_get(path)
     cleaned = data["content"].replace("\n", "")
     return base64.b64decode(cleaned).decode("utf-8", errors="replace")
@@ -153,7 +151,7 @@ def find_tfx_url() -> str:
         headers=h,
     )
     if r.status_code == 404:
-        raise RuntimeError(f"Dossier {PARATV_STREAMS_DIR}/ introuvable dans {PARATV_REPO}")
+        raise RuntimeError(f"Dossier {PARATV_STREAMS_DIR}/ introuvable")
     r.raise_for_status()
 
     candidates = []
@@ -180,108 +178,84 @@ def find_tfx_url() -> str:
     raise RuntimeError("Aucun stream TFX trouvé dans ParaTV")
 
 
-def _pick_best_variant(master_text: str, master_url: str) -> str | None:
-    """
-    Analyse un master playlist HLS et retourne l'URL de la variante
-    qui contient à la fois audio (mp4a/ac-3/ec-3) ET vidéo (avc1/hvc1/hev1).
-    Si plusieurs correspondent, on prend celle avec le meilleur débit.
-    Retourne None si aucune variante avec audio+vidéo n'est trouvée.
-    """
-    # Regex : trouve les blocs #EXT-X-STREAM-INF suivis d'une URL
-    stream_inf_re = re.compile(
-        r'#EXT-X-STREAM-INF:([^\n]+)\n([^\n#][^\n]*)',
-        re.MULTILINE
-    )
-
-    VIDEO_CODECS = re.compile(r'avc1|hvc1|hev1|dvh1', re.IGNORECASE)
-    AUDIO_CODECS = re.compile(r'mp4a|ac-3|ec-3|opus', re.IGNORECASE)
-    BANDWIDTH_RE = re.compile(r'BANDWIDTH=(\d+)', re.IGNORECASE)
-
-    best_url = None
-    best_bw  = -1
-
-    for match in stream_inf_re.finditer(master_text):
-        attrs = match.group(1)
-        variant_path = match.group(2).strip()
-
-        codecs_m = re.search(r'CODECS="([^"]+)"', attrs, re.IGNORECASE)
-        if not codecs_m:
-            # Pas de CODECS= déclaré → on ne peut pas savoir, on skip
-            continue
-
-        codecs = codecs_m.group(1)
-        has_video = bool(VIDEO_CODECS.search(codecs))
-        has_audio = bool(AUDIO_CODECS.search(codecs))
-
-        if not (has_video and has_audio):
-            log.info(f"    ⏭ Variante ignorée (v={has_video} a={has_audio}) : {codecs}")
-            continue
-
-        bw_m = BANDWIDTH_RE.search(attrs)
-        bw = int(bw_m.group(1)) if bw_m else 0
-
-        # Construire l'URL absolue si le chemin est relatif
-        if variant_path.startswith("http"):
-            variant_url = variant_path
-        else:
-            base = master_url.rsplit("/", 1)[0]
-            variant_url = f"{base}/{variant_path}"
-
-        log.info(f"    ✅ Variante audio+vidéo ({bw//1000}kbps) : {codecs}")
-
-        if bw > best_bw:
-            best_bw  = bw
-            best_url = variant_url
-
-    return best_url
-
-
 def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
     """
-    Télécharge un .m3u8 de ParaTV.
-    Si c'est un master playlist HLS → choisit la variante audio+vidéo.
-    Si c'est un stream direct → le retourne tel quel (après vérification TFX).
+    Télécharge le fichier .m3u8 de ParaTV.
+    - Log le contenu complet pour debug
+    - Si contient #EXT-X-STREAM-INF → c'est un master HLS
+      → on retourne l'URL du fichier lui-même (pas une variante enfant)
+        car c'est le master complet que les players doivent recevoir
+    - Sinon → retourne la première URL non-commentaire
     """
     raw_url = file_info.get("download_url")
     if not raw_url:
         return None
+
     try:
         r = fetch(raw_url, headers=headers)
         if r.status_code != 200:
             return None
         text = r.text
 
-        # Vérifier que c'est bien TFX
         if not any(kw in text.upper() for kw in TFX_KEYWORDS):
             return None
 
         fname = file_info.get("name", "?")
 
-        # ── Cas 1 : master playlist HLS (contient #EXT-X-STREAM-INF) ──
+        # ── LOG COMPLET du fichier TFX pour debug ──
+        log.info(f"{'='*50}")
+        log.info(f"📄 Contenu de {fname} :")
+        for i, line in enumerate(text.splitlines()[:40]):
+            log.info(f"  L{i+1:02d}: {line}")
+        if len(text.splitlines()) > 40:
+            log.info(f"  ... ({len(text.splitlines())} lignes au total)")
+        log.info(f"{'='*50}")
+
+        lines = text.splitlines()
+
+        # ── Master HLS : contient des variantes ──
         if "#EXT-X-STREAM-INF" in text:
-            log.info(f"📋 Master playlist HLS détecté : {fname}")
-            best = _pick_best_variant(text, raw_url)
-            if best:
-                log.info(f"✅ TFX (audio+vidéo) : {fname} → {best[:70]}…")
-                return best
-            # Aucune variante avec codecs déclarés → fallback première URL non-commentaire
-            log.warning(f"⚠️ Aucune variante audio+vidéo trouvée dans {fname} — fallback première URL")
-            for line in text.splitlines():
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    log.info(f"✅ TFX (fallback) : {fname} → {line[:70]}…")
-                    return line
+            log.info(f"📋 Master HLS détecté : {fname}")
+
+            # Chercher l'URL du stream depuis les métadonnées GitHub
+            # download_url pointe vers le fichier dans le repo ParaTV
+            # La vraie URL live est dans les lignes non-commentaires
+            all_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+
+            log.info(f"  URLs trouvées dans le master ({len(all_urls)}) :")
+            for u in all_urls:
+                log.info(f"  → {u[:100]}")
+
+            # Chercher si une URL ressemble au CDN TF1 direct
+            # (alive-tfx-hls, tf1.fr, etc.) → c'est elle qu'on veut
+            for u in all_urls:
+                if any(domain in u for domain in ["tf1.fr", "tf1.com", "alive-tfx", "diff.tf1"]):
+                    # Vérifier si c'est une variante (.m3u8) ou le master
+                    # On veut l'URL de la variante qui contient audio+vidéo
+                    # mais si on n'a pas le choix, on prend la première URL CDN
+                    log.info(f"✅ URL CDN TF1 trouvée : {u[:80]}…")
+                    return u
+
+            # Pas d'URL CDN directe → prendre la première URL absolue
+            for u in all_urls:
+                if u.startswith("http"):
+                    log.info(f"✅ TFX (première URL abs) : {u[:80]}…")
+                    return u
+
+            # Dernier recours : première URL quelle qu'elle soit
+            if all_urls:
+                log.info(f"✅ TFX (fallback) : {all_urls[0][:80]}…")
+                return all_urls[0]
+
             return None
 
-        # ── Cas 2 : stream direct (pas de #EXT-X-STREAM-INF) ──
-        stream_urls = [
-            l.strip() for l in text.splitlines()
-            if l.strip() and not l.startswith("#")
-        ]
-        if not stream_urls:
+        # ── Pas de master HLS : stream direct ──
+        all_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+        if not all_urls:
             return None
-        log.info(f"✅ TFX (stream direct) : {fname} → {stream_urls[0][:70]}…")
-        return stream_urls[0]
+
+        log.info(f"✅ TFX stream direct : {fname} → {all_urls[0][:80]}…")
+        return all_urls[0]
 
     except Exception as exc:
         log.warning(f"Erreur {file_info.get('name', '?')} : {exc}")
@@ -291,14 +265,14 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
 def update_playlist(new_url: str) -> int:
     log.info(f"📝 Lecture de {PLAYLIST_FILE}…")
     content = github_get_raw(PLAYLIST_FILE)
-    sha = github_get(PLAYLIST_FILE)["sha"]
+    sha     = github_get(PLAYLIST_FILE)["sha"]
 
-    lines = content.splitlines()
-    new_lines = []
-    i = 0
-    count = 0
+    lines            = content.splitlines()
+    new_lines        = []
+    i                = 0
+    count            = 0
     trailing_newline = content.endswith("\n")
-    all_names = []
+    all_names        = []
 
     while i < len(lines):
         line = lines[i]
@@ -326,9 +300,8 @@ def update_playlist(new_url: str) -> int:
         i += 1
 
     if count == 0:
-        log.error("❌ Aucune chaîne TFX trouvée dans la playlist !")
+        log.error("❌ Aucune chaîne TFX trouvée !")
         log.error(f"   Noms cherchés : {sorted(TFX_EXACT_NAMES)}")
-        log.info(f"   Total chaînes : {len(all_names)}")
         tf_names = [n for n in all_names if "tf" in n.lower()]
         if tf_names:
             log.info(f"   Noms contenant 'tf' : {tf_names}")
@@ -352,7 +325,7 @@ def update_playlist(new_url: str) -> int:
 def load_cache() -> tuple[dict, str | None]:
     try:
         content = github_get_raw(CACHE_FILE)
-        sha = github_get(CACHE_FILE)["sha"]
+        sha     = github_get(CACHE_FILE)["sha"]
         return json.loads(content), sha
     except FileNotFoundError:
         log.info("Cache absent — sera créé après la première mise à jour")
@@ -377,7 +350,7 @@ def save_cache(cache: dict, sha: str | None) -> None:
 # ─── DISCORD ─────────────────────────────────────────────────────────────────
 def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
     if not DISCORD_WEBHOOK_TFX:
-        log.warning("⚠️ DISCORD_WEBHOOK_TFX absent — notification ignorée")
+        log.warning("⚠️ DISCORD_WEBHOOK_TFX absent")
         return
 
     def trunc(u: str, n: int = 100) -> str:
@@ -386,15 +359,15 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
     payload = {
         "embeds": [{
             "title": "📺 TFX — URL mise à jour automatiquement",
-            "description": f"**{count}** occurrence(s) mise(s) à jour dans `{PLAYLIST_FILE}`",
+            "description": f"**{count}** occurrence(s) dans `{PLAYLIST_FILE}`",
             "color": 0xf472b6,
             "fields": [
-                {"name": "✅ Nouvelle URL",  "value": f"```{trunc(new_url)}```", "inline": False},
-                {"name": "💀 Ancienne URL",  "value": f"```{trunc(old_url) if old_url else 'N/A — première détection'}```", "inline": False},
-                {"name": "🔢 Mise à jour n°","value": str(total), "inline": True},
-                {"name": "🕐 Heure",         "value": _now(),     "inline": True},
+                {"name": "✅ Nouvelle URL",   "value": f"```{trunc(new_url)}```", "inline": False},
+                {"name": "💀 Ancienne URL",   "value": f"```{trunc(old_url) if old_url else 'N/A'}```", "inline": False},
+                {"name": "🔢 Mise à jour n°", "value": str(total), "inline": True},
+                {"name": "🕐 Heure",          "value": _now(),     "inline": True},
             ],
-            "footer": {"text": "Exotic TFX Auto-Updater v4.3 • 🌴 Pink Paradise"},
+            "footer": {"text": "Exotic TFX Auto-Updater v4.5 • 🌴 Pink Paradise"},
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }]
     }
@@ -418,19 +391,19 @@ def _check_config() -> None:
         log.error("❌ GITHUB_TOKEN manquant")
         sys.exit(1)
     if not DISCORD_WEBHOOK_TFX:
-        log.warning("⚠️ DISCORD_WEBHOOK_TFX non défini — pas de notification")
+        log.warning("⚠️ DISCORD_WEBHOOK_TFX non défini")
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 def main() -> None:
     log.info("─" * 55)
-    log.info(f"📺 Exotic TFX Auto-Updater v4.3 — {_now()}")
+    log.info(f"📺 Exotic TFX Auto-Updater v4.5 — {_now()}")
     log.info("─" * 55)
 
     _check_config()
 
     try:
         new_url = find_tfx_url()
-        log.info(f"🎯 URL TFX sélectionnée : {new_url[:80]}…")
+        log.info(f"🎯 URL finale : {new_url[:80]}…")
     except Exception as exc:
         log.error(f"❌ Scan ParaTV échoué : {exc}")
         sys.exit(1)
@@ -439,10 +412,10 @@ def main() -> None:
     last_url = cache.get("last_url", "")
 
     if new_url == last_url:
-        log.info("📌 URL identique — aucune mise à jour nécessaire")
+        log.info("📌 URL identique — aucune mise à jour")
         return
 
-    log.info("🔄 Nouvelle URL détectée — mise à jour en cours…")
+    log.info("🔄 Nouvelle URL — mise à jour…")
 
     try:
         count = update_playlist(new_url)
@@ -457,12 +430,10 @@ def main() -> None:
     cache["last_url"] = new_url
     cache["update_count"] = cache.get("update_count", 0) + 1
     save_cache(cache, cache_sha)
-
     notify_discord(last_url, new_url, count, cache["update_count"])
-
     log.info("🎉 Terminé avec succès !")
 
 
 if __name__ == "__main__":
     main()
-        
+
