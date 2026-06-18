@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Exotic CStar Auto-Updater v1.0
-- Fetch l'URL HLS CStar depuis l'API Dailymotion (video x5gv5v0)
-- Met à jour exotic-tv-playlist.m3u automatiquement si l'URL change
+- Fetch l'URL HLS CStar depuis raw.githubusercontent.com/schumijo/iptv
+- Même logique que TFX : retourne l'URL raw du master complet
+- Met à jour exotic-tv-playlist.m3u si l'URL change
 - Notifie Discord
 """
 
@@ -10,7 +11,6 @@ import os
 import re
 import sys
 import json
-import time
 import base64
 import logging
 import requests
@@ -26,7 +26,7 @@ logging.basicConfig(
 log = logging.getLogger("cstar-updater")
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-DM_VIDEO_ID         = "x5gv5v0"   # ID Dailymotion de CStar
+CSTAR_SOURCE        = "https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cstar.m3u8"
 PLAYLIST_FILE       = "exotic-tv-playlist.m3u"
 CACHE_FILE          = "cstar_cache.json"
 REPO                = "ExoticSecurityWeb/iptv-exotic"
@@ -34,59 +34,59 @@ GITHUB_TOKEN        = os.environ.get("GITHUB_TOKEN", "")
 DISCORD_WEBHOOK     = os.environ.get("DISCORD_WEBHOOK_CSTAR", "")
 
 # Noms CStar dans ta playlist (insensible à la casse)
+# Lance le script une fois pour voir le nom exact si ça match pas
 CSTAR_EXACT_NAMES = {
     "cstar",
-    "cstar (720p)",
-    "cstar (720p) [geo-blocked]",
     "cstar hd",
-    "c star (720p) [geo-blocked]",
+    "cstar (720p)",
+    "cstar (1080p)",
+    "cstar (720p) [geo-blocked]",
+    "cstar (1080p) [geo-blocked]",
     "c star",
+    "c star hd",
 }
 
-REQUEST_TIMEOUT = 20
-SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "Mozilla/5.0 ExoticTV-Updater/1.0"})
+REQUEST_TIMEOUT       = 20
 _DEFAULT_BRANCH_CACHE = None
+
+SESSION = requests.Session()
+SESSION.headers.update({"User-Agent": "ExoticTV-CStar-Updater/1.0"})
 
 # ─── FETCH CSTAR URL ─────────────────────────────────────────────────────────
 def fetch_cstar_url() -> str:
-    """Récupère l'URL HLS CStar via l'API embed Dailymotion."""
-    log.info(f"🔍 Fetch URL CStar depuis Dailymotion (id: {DM_VIDEO_ID})…")
-
-    # API embed Dailymotion — retourne les qualités disponibles
-    url = f"https://www.dailymotion.com/player/metadata/video/{DM_VIDEO_ID}?embedder=https://www.dailymotion.com&locale=fr&dmV1st=1"
-    r = SESSION.get(url, timeout=REQUEST_TIMEOUT)
-
+    """
+    Télécharge le fichier cstar.m3u8 depuis le repo schumijo.
+    - Si c'est un master HLS → retourne l'URL du fichier lui-même
+      (même logique que TFX : le player gère audio+vidéo depuis le master)
+    - Si c'est un stream direct → retourne la première URL non-commentaire
+    """
+    log.info(f"🔍 Fetch CStar depuis schumijo/iptv…")
+    r = SESSION.get(CSTAR_SOURCE, timeout=REQUEST_TIMEOUT)
     if r.status_code != 200:
-        raise RuntimeError(f"Dailymotion API HTTP {r.status_code}")
+        raise RuntimeError(f"HTTP {r.status_code} sur {CSTAR_SOURCE}")
 
-    data = r.json()
+    text = r.text
+    r.encoding = "utf-8"
 
-    # Cherche une URL HLS dans les qualités
-    qualities = data.get("qualities", {})
-    for quality_name in ["auto", "1080", "720", "480", "380", "240"]:
-        items = qualities.get(quality_name, [])
-        for item in items:
-            if isinstance(item, dict) and item.get("type") == "application/x-mpegURL":
-                hls_url = item.get("url", "")
-                if hls_url:
-                    log.info(f"✅ URL HLS trouvée (qualité {quality_name})")
-                    return hls_url
+    # Log les premières lignes pour debug
+    lines = text.splitlines()
+    log.info(f"📄 Contenu ({len(lines)} lignes) :")
+    for i, line in enumerate(lines[:20]):
+        log.info(f"  L{i+1:02d}: {line}")
 
-    # Fallback : cherche dans stream_hls_url
-    hls = data.get("stream_hls_url", "")
-    if hls:
-        log.info("✅ URL HLS trouvée via stream_hls_url")
-        return hls
+    # Master HLS → retourner l'URL source directement
+    if "#EXT-X-STREAM-INF" in text:
+        log.info("📋 Master HLS détecté → URL source retournée")
+        log.info(f"✅ CStar master : {CSTAR_SOURCE[:80]}…")
+        return CSTAR_SOURCE
 
-    # Fallback 2 : URL cdndirector directe
-    dm_url = f"https://cdndirector.dailymotion.com/cdn/live/video/{DM_VIDEO_ID}.m3u8"
-    r2 = SESSION.head(dm_url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
-    if r2.status_code < 400:
-        log.info("✅ URL cdndirector validée")
-        return dm_url
+    # Stream direct → extraire la première URL
+    stream_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+    if stream_urls:
+        log.info(f"✅ CStar stream direct : {stream_urls[0][:80]}…")
+        return stream_urls[0]
 
-    raise RuntimeError("Impossible de trouver une URL HLS CStar valide")
+    raise RuntimeError("Aucune URL valide trouvée dans le fichier CStar")
 
 # ─── GITHUB API ──────────────────────────────────────────────────────────────
 def gh_headers() -> dict:
@@ -95,6 +95,7 @@ def gh_headers() -> dict:
         h["Authorization"] = f"token {GITHUB_TOKEN}"
     return h
 
+
 def get_default_branch() -> str:
     global _DEFAULT_BRANCH_CACHE
     if _DEFAULT_BRANCH_CACHE:
@@ -102,7 +103,9 @@ def get_default_branch() -> str:
     r = SESSION.get(f"https://api.github.com/repos/{REPO}", headers=gh_headers(), timeout=REQUEST_TIMEOUT)
     r.raise_for_status()
     _DEFAULT_BRANCH_CACHE = r.json()["default_branch"]
+    log.info(f"🔍 Branche : {_DEFAULT_BRANCH_CACHE}")
     return _DEFAULT_BRANCH_CACHE
+
 
 def github_get_raw(path: str) -> str:
     branch = get_default_branch()
@@ -112,19 +115,26 @@ def github_get_raw(path: str) -> str:
         r.encoding = "utf-8"
         return r.text
     # Fallback API
-    r2 = SESSION.get(f"https://api.github.com/repos/{REPO}/contents/{path}", headers=gh_headers(), timeout=REQUEST_TIMEOUT)
+    r2 = SESSION.get(
+        f"https://api.github.com/repos/{REPO}/contents/{path}",
+        headers=gh_headers(), timeout=REQUEST_TIMEOUT
+    )
     if r2.status_code == 404:
         raise FileNotFoundError(f"Introuvable : {path}")
     r2.raise_for_status()
-    raw_b64 = r2.json()["content"].replace("\n", "")
-    return base64.b64decode(raw_b64).decode("utf-8", errors="replace")
+    return base64.b64decode(r2.json()["content"].replace("\n", "")).decode("utf-8", errors="replace")
 
-def github_get_sha(path: str) -> str:
-    r = SESSION.get(f"https://api.github.com/repos/{REPO}/contents/{path}", headers=gh_headers(), timeout=REQUEST_TIMEOUT)
+
+def github_get_sha(path: str) -> str | None:
+    r = SESSION.get(
+        f"https://api.github.com/repos/{REPO}/contents/{path}",
+        headers=gh_headers(), timeout=REQUEST_TIMEOUT
+    )
     if r.status_code == 404:
         return None
     r.raise_for_status()
     return r.json()["sha"]
+
 
 def github_put(path: str, content: str, sha: str | None, message: str) -> None:
     payload = {
@@ -137,6 +147,8 @@ def github_put(path: str, content: str, sha: str | None, message: str) -> None:
         f"https://api.github.com/repos/{REPO}/contents/{path}",
         headers=gh_headers(), json=payload, timeout=REQUEST_TIMEOUT
     )
+    if r.status_code == 409:
+        raise RuntimeError("Conflit GitHub 409 — SHA obsolète")
     r.raise_for_status()
 
 # ─── CACHE ───────────────────────────────────────────────────────────────────
@@ -152,9 +164,10 @@ def load_cache() -> tuple[dict, str | None]:
         log.warning(f"Cache illisible ({exc}) — réinitialisation")
         return {"last_url": "", "last_updated": "", "update_count": 0}, None
 
+
 def save_cache(cache: dict, sha: str | None) -> None:
     try:
-        github_put(CACHE_FILE, json.dumps(cache, indent=2), sha, f"🔄 Cache CStar — {_now()}")
+        github_put(CACHE_FILE, json.dumps(cache, indent=2, ensure_ascii=False), sha, f"🔄 Cache CStar — {_now()}")
         log.info("💾 Cache sauvegardé")
     except Exception as exc:
         log.warning(f"Cache non sauvegardé : {exc}")
@@ -163,14 +176,14 @@ def save_cache(cache: dict, sha: str | None) -> None:
 def update_playlist(new_url: str) -> int:
     log.info(f"📝 Lecture de {PLAYLIST_FILE}…")
     content = github_get_raw(PLAYLIST_FILE)
-    sha = github_get_sha(PLAYLIST_FILE)
+    sha     = github_get_sha(PLAYLIST_FILE)
 
-    lines = content.splitlines()
-    new_lines = []
-    i = 0
-    count = 0
+    lines            = content.splitlines()
+    new_lines        = []
+    i                = 0
+    count            = 0
     trailing_newline = content.endswith("\n")
-    all_names = []
+    all_names        = []
 
     while i < len(lines):
         line = lines[i]
@@ -198,9 +211,14 @@ def update_playlist(new_url: str) -> int:
 
     if count == 0:
         log.error("❌ Aucune chaîne CStar trouvée dans la playlist !")
+        log.error(f"   Noms cherchés : {sorted(CSTAR_EXACT_NAMES)}")
         cstar_names = [n for n in all_names if "star" in n.lower() or "cstar" in n.lower()]
         if cstar_names:
             log.info(f"   Noms contenant 'star' : {cstar_names}")
+        else:
+            log.info("   30 premiers noms :")
+            for n in all_names[:30]:
+                log.info(f"   · «{n}»")
         return 0
 
     new_content = "\n".join(new_lines)
@@ -216,15 +234,19 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
     if not DISCORD_WEBHOOK:
         log.warning("⚠️ DISCORD_WEBHOOK_CSTAR absent — notification ignorée")
         return
+
+    def trunc(u: str, n: int = 100) -> str:
+        return u[:n] + "…" if len(u) > n else u
+
     payload = {"embeds": [{
         "title": "📺 CStar — URL mise à jour automatiquement",
-        "description": f"**{count}** occurrence(s) mise(s) à jour dans `{PLAYLIST_FILE}`",
+        "description": f"**{count}** occurrence(s) dans `{PLAYLIST_FILE}`",
         "color": 0x22d3ee,
         "fields": [
-            {"name": "✅ Nouvelle URL", "value": f"```{new_url[:100]}```", "inline": False},
-            {"name": "💀 Ancienne URL", "value": f"```{old_url[:100] if old_url else 'N/A'}```", "inline": False},
+            {"name": "✅ Nouvelle URL",   "value": f"```{trunc(new_url)}```", "inline": False},
+            {"name": "💀 Ancienne URL",   "value": f"```{trunc(old_url) if old_url else 'N/A'}```", "inline": False},
             {"name": "🔢 Mise à jour n°", "value": str(total), "inline": True},
-            {"name": "🕐 Heure", "value": _now(), "inline": True},
+            {"name": "🕐 Heure",          "value": _now(),     "inline": True},
         ],
         "footer": {"text": "Exotic CStar Auto-Updater v1.0 • 🌴 Pink Paradise"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -234,7 +256,7 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
         if r.status_code in (200, 204):
             log.info("✅ Discord notifié")
         else:
-            log.warning(f"Discord HTTP {r.status_code}")
+            log.warning(f"Discord HTTP {r.status_code} : {r.text[:200]}")
     except Exception as exc:
         log.warning(f"❌ Discord KO : {exc}")
 
@@ -251,6 +273,8 @@ def main() -> None:
     if not GITHUB_TOKEN:
         log.error("❌ GITHUB_TOKEN manquant")
         sys.exit(1)
+    if not DISCORD_WEBHOOK:
+        log.warning("⚠️ DISCORD_WEBHOOK_CSTAR non défini — pas de notification")
 
     # 1. Fetch URL CStar
     try:
@@ -291,6 +315,7 @@ def main() -> None:
     # 6. Discord
     notify_discord(last_url, new_url, count, cache["update_count"])
     log.info("🎉 Terminé !")
+
 
 if __name__ == "__main__":
     main()
