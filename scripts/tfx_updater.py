@@ -180,12 +180,21 @@ def find_tfx_url() -> str:
 
 def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
     """
-    Télécharge le fichier .m3u8 de ParaTV.
-    - Log le contenu complet pour debug
-    - Si contient #EXT-X-STREAM-INF → c'est un master HLS
-      → on retourne l'URL du fichier lui-même (pas une variante enfant)
-        car c'est le master complet que les players doivent recevoir
-    - Sinon → retourne la première URL non-commentaire
+    Télécharge le fichier .m3u8 de ParaTV et retourne la bonne URL.
+
+    Structure confirmée des logs :
+      L08: #EXT-X-STREAM-INF:...,AUDIO="audio-AACL-141",...
+      L09: https://alive-tfx-hls.cdn-0.diff.tf1.fr/hls/live/.../index.m3u8?...
+      (L01-L07 contiennent #EXT-X-MEDIA avec les pistes audio séparées)
+
+    → Les variantes (L09, L11, L13) référencent un groupe audio "audio-AACL-141"
+      défini dans #EXT-X-MEDIA en haut du fichier.
+    → Si on met une URL de variante dans la playlist, le player ne trouve pas
+      les pistes audio car il n'a pas le master.
+    → SOLUTION : retourner l'URL raw du fichier ParaTV lui-même
+      (via raw.githubusercontent.com) — c'est le vrai master HLS complet
+      avec #EXT-X-MEDIA + #EXT-X-STREAM-INF, que tous les players IPTV
+      savent lire pour sélectionner audio+vidéo automatiquement.
     """
     raw_url = file_info.get("download_url")
     if not raw_url:
@@ -197,60 +206,27 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
             return None
         text = r.text
 
+        # Vérifier que c'est bien TFX
         if not any(kw in text.upper() for kw in TFX_KEYWORDS):
             return None
 
         fname = file_info.get("name", "?")
 
-        # ── LOG COMPLET du fichier TFX pour debug ──
-        log.info(f"{'='*50}")
-        log.info(f"📄 Contenu de {fname} :")
-        for i, line in enumerate(text.splitlines()[:40]):
-            log.info(f"  L{i+1:02d}: {line}")
-        if len(text.splitlines()) > 40:
-            log.info(f"  ... ({len(text.splitlines())} lignes au total)")
-        log.info(f"{'='*50}")
-
-        lines = text.splitlines()
-
-        # ── Master HLS : contient des variantes ──
+        # ── Master HLS avec audio séparé (#EXT-X-MEDIA + #EXT-X-STREAM-INF) ──
         if "#EXT-X-STREAM-INF" in text:
             log.info(f"📋 Master HLS détecté : {fname}")
 
-            # Chercher l'URL du stream depuis les métadonnées GitHub
-            # download_url pointe vers le fichier dans le repo ParaTV
-            # La vraie URL live est dans les lignes non-commentaires
-            all_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+            # Construire l'URL raw du fichier ParaTV
+            # download_url = https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/.../file.m3u8
+            # C'est exactement cette URL qu'on veut mettre dans la playlist :
+            # elle pointe vers le master complet avec toutes les pistes audio/vidéo
+            master_url = raw_url
 
-            log.info(f"  URLs trouvées dans le master ({len(all_urls)}) :")
-            for u in all_urls:
-                log.info(f"  → {u[:100]}")
+            log.info(f"✅ TFX master complet (audio+vidéo) : {master_url[:80]}…")
+            return master_url
 
-            # Chercher si une URL ressemble au CDN TF1 direct
-            # (alive-tfx-hls, tf1.fr, etc.) → c'est elle qu'on veut
-            for u in all_urls:
-                if any(domain in u for domain in ["tf1.fr", "tf1.com", "alive-tfx", "diff.tf1"]):
-                    # Vérifier si c'est une variante (.m3u8) ou le master
-                    # On veut l'URL de la variante qui contient audio+vidéo
-                    # mais si on n'a pas le choix, on prend la première URL CDN
-                    log.info(f"✅ URL CDN TF1 trouvée : {u[:80]}…")
-                    return u
-
-            # Pas d'URL CDN directe → prendre la première URL absolue
-            for u in all_urls:
-                if u.startswith("http"):
-                    log.info(f"✅ TFX (première URL abs) : {u[:80]}…")
-                    return u
-
-            # Dernier recours : première URL quelle qu'elle soit
-            if all_urls:
-                log.info(f"✅ TFX (fallback) : {all_urls[0][:80]}…")
-                return all_urls[0]
-
-            return None
-
-        # ── Pas de master HLS : stream direct ──
-        all_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+        # ── Stream direct (pas de variantes) ──
+        all_urls = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
         if not all_urls:
             return None
 
@@ -396,7 +372,7 @@ def _check_config() -> None:
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 def main() -> None:
     log.info("─" * 55)
-    log.info(f"📺 Exotic TFX Auto-Updater v4.5 — {_now()}")
+    log.info(f"📺 Exotic TFX Auto-Updater v4.6 — {_now()}")
     log.info("─" * 55)
 
     _check_config()
