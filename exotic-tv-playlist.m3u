@@ -20,7 +20,7 @@ http://151.80.18.177:86/W9_HD/index.m3u8
 #EXTINF:-1 tvg-id="Africa24English.fr@SD" tvg-name="TMC" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/tmc-fr.png",TMC
 http://151.80.18.177:86/TMC/index.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p)" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p)
-https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaXAiOiI3OS4xMjcuMTY5LjM2IiwiY21jZCI6IiIsImV4cCI6MTc4MTgyNDc0NiwiZ2lkIjoiZTcyMDM4YzM1OTQ4NDA3NWI4MzhlMDY2OTViN2Q0OTYiLCJpYXQiOjE3ODE4MTAzNDYsImlzcyI6ImRlbGl2ZXJ5IiwibWF4YiI6MCwic3RlbSI6Ii9wcm9kL1RGWC9jbWFmL291dCIsInN1YiI6ImU3MjAzOGMzNTk0ODQwNzViODM4ZTA2Njk1YjdkNDk2In0.OMF6UTXvYLx0sNvO07dCOI6CLl_8dSSBzKn4GXJ67Eo/prod/TFX/cmaf/out/TFX-avc1_1200000=10000.m3u8
+https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaXAiOiI3OS4xMjcuMTY5LjM2IiwiY21jZCI6IiIsImV4cCI6MTc4MTgyNDc0NiwiZ2lkIjoiZTcyMDM4YzM1OTQ4NDA3NWI4MzhlMDY2OTViN2Q0OTYiLCJpYXQiOjE3ODE4MTAzNDYsImlzcyI6ImRlbGl2ZXJ5IiwibWF4YiI6MCwic3RlbSI6Ii9wcm9kL1RGWC9jbWFmL291dCIsInN1YiI6ImU3MjAzOGMzNTk0ODQwNzViODM4ZTA2Njk1YjdkNDk2In0.OMF6UTXvYLx0sNvO07dCOI6CLl_8dSSBzKn4GXJ67Eo/prod/TFX/cmaf/out/TFX-avc1_2499968=10002.m3u8
 #EXTINF:-1 tvg-id="Onepiece.fr@SD" tvg-name="One Piece" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/3/34/One_Piece_%28ja%29_Logo.svg" group-title="PlutoTV",One Piece
 https://jmp2.uk/plu-6380c94947c72b0007ee9a13.m3u8
 #EXTINF:-1 tvg-id="ADNTVPlus.fr@SD" tvg-name="ADN TV+ (720p)" tvg-logo="https://i.imgur.com/HQZQyWt.png" group-title="Animation",ADN TV+ (720p)
