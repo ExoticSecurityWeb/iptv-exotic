@@ -47,7 +47,7 @@ TF1_EXACT_NAMES = {
 # Mots-clés pour identifier le bon fichier — ATTENTION à ne pas matcher
 # TF1 Series Films / TFX qui contiennent aussi "TF1" ou "NT1" dans certains noms
 TF1_KEYWORDS_POSITIVE = {"TF1"}
-TF1_KEYWORDS_EXCLUDE  = {"TFX", "NT1", "SERIES", "SERIE", "FILMS", "LCI"}
+TF1_KEYWORDS_EXCLUDE  = {"TFX", "NT1", "SERIES", "SERIE", "FILMS", "LCI", "LCP"}
 
 MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
