@@ -10,7 +10,7 @@ http://176.65.146.100:8047/play/a074/index.m3u8
 #EXTINF:-1 tvg-id="France5.fr@SD" tvg-name="France 5 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/France_5_2018.svg/960px-France_5_2018.svg.png" group-title="General",France 5 (1080p)
 http://69.64.57.208/france5/mono.m3u8
 #EXTINF:-1 tvg-id="M6.fr@SD" tvg-name="M6 HD" tvg-logo="https://i.imgur.com/7GVp3fW.png" group-title="Entertainment",M6 HD
-http://151.80.18.177:86/M6_HD/index.m3u8
+https://origin-m6web.live.6cloud.fr/out/v1/6play/6play-m6/cmaf_q2hyb21h/hls-short-hd.m3u8
 #EXTINF:-1 tvg-id="arte.fr@SD" tvg-name="Arte (720p) [Geo-blocked]" tvg-logo="https://i.imgur.com/ecXMjNl.png" group-title="Entertainment",Arte (720p) [Geo-blocked]
 https://artesimulcast.akamaized.net/hls/live/2031003/artelive_fr/index.m3u8
 #EXTINF:-1 tvg-id="arte.fr@HD" tvg-name="Arte HD (1080p)" tvg-logo="https://i.imgur.com/ecXMjNl.png" group-title="Entertainment",Arte HD (1080p)
