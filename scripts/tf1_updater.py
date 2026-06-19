@@ -47,7 +47,7 @@ TF1_EXACT_NAMES = {
 # Mots-clés pour identifier le bon fichier — ATTENTION à ne pas matcher
 # TF1 Series Films / TFX qui contiennent aussi "TF1" ou "NT1" dans certains noms
 TF1_KEYWORDS_POSITIVE = {"TF1"}
-TF1_KEYWORDS_EXCLUDE  = {"TFX", "NT1", "SERIES", "SERIE", "FILMS", "LCI", "LCP"}
+TF1_KEYWORDS_EXCLUDE  = {"TFX", "NT1", "SERIES", "SERIE", "FILMS", "LCI", "LCP", "TMC"}
 
 MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
@@ -197,6 +197,13 @@ def _extract_tf1_from_file(file_info: dict, headers: dict) -> str | None:
             return None
         if any(kw in text_upper for kw in TF1_KEYWORDS_EXCLUDE):
             return None
+
+        # Vérifier que les URLs dans le fichier pointent vers TF1 et pas TMC/TFX
+        lines_check = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
+        if lines_check:
+            first_url = lines_check[0]
+            if "alive-tf1-hls" not in first_url and "live-tf1-hls" not in first_url:
+                return None
 
         fname = file_info.get("name", "?")
 
