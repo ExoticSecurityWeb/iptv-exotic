@@ -162,19 +162,42 @@ def find_cstar_url() -> str:
 
 def _resolve_master_url(text: str, raw_url: str) -> str:
     """
-    Si le fichier contient un master HLS avec variantes (#EXT-X-STREAM-INF),
-    on garde l'URL raw du fichier ParaTV lui-même pour préserver audio+vidéo.
-    Sinon on prend l'URL de stream direct.
-    """
-    if "#EXT-X-STREAM-INF" in text:
-        log.info(f"📋 Master HLS détecté — on garde le master complet (audio+vidéo)")
-        return raw_url
+    Le fichier ParaTV CStar contient plusieurs variantes #EXT-X-STREAM-INF,
+    chacune avec CODECS="avc1...,mp4a..." (audio+vidéo déjà dans la même URL,
+    pas de piste audio séparée comme TFX).
 
-    all_urls = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
-    if all_urls:
-        log.info(f"✅ Stream direct : {all_urls[0][:80]}…")
-        return all_urls[0]
-    return raw_url
+    On parse les lignes pour choisir la meilleure résolution disponible
+    (priorité: 1080 > 720 > 480 > 380 > 240) et on retourne CETTE URL précise,
+    pas le fichier master en entier.
+    """
+    lines = text.splitlines()
+    variants = []  # liste de (resolution_height, bandwidth, url)
+
+    for i, line in enumerate(lines):
+        if line.startswith("#EXT-X-STREAM-INF"):
+            res_match = re.search(r'RESOLUTION=(\d+)x(\d+)', line)
+            bw_match  = re.search(r'BANDWIDTH=(\d+)', line)
+            height = int(res_match.group(2)) if res_match else 0
+            bw     = int(bw_match.group(1)) if bw_match else 0
+            # L'URL est sur la ligne suivante (pas un commentaire)
+            if i + 1 < len(lines) and not lines[i+1].startswith("#"):
+                url = lines[i+1].strip()
+                variants.append((height, bw, url))
+
+    if not variants:
+        log.warning("⚠️ Aucune variante #EXT-X-STREAM-INF trouvée — fallback sur première URL")
+        all_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
+        return all_urls[0] if all_urls else raw_url
+
+    # Trier par résolution puis bandwidth décroissants → meilleure qualité en premier
+    variants.sort(key=lambda v: (v[0], v[1]), reverse=True)
+    best_height, best_bw, best_url = variants[0]
+
+    log.info(f"📊 {len(variants)} variante(s) trouvée(s) : {[f'{h}p' for h,_,_ in variants]}")
+    log.info(f"✅ Meilleure qualité choisie : {best_height}p ({best_bw} bps)")
+    log.info(f"   URL : {best_url[:90]}…")
+
+    return best_url
 
 # ─── PLAYLIST ────────────────────────────────────────────────────────────────
 def update_playlist(new_url: str) -> int:
