@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Exotic TFX Auto-Updater v4.5
-- Log le contenu COMPLET du fichier TFX ParaTV pour debug audio
-- Retourne l'URL brute du fichier ParaTV (le master complet)
-  en reconstruisant depuis download_url → raw stream URL
-- Tout le reste identique à v4.2
+Exotic TFX Auto-Updater v4.6
+- Ajout : si ParaTV ne fournit pas le master HLS, détecte la base tokenisée
+  de TF1 (alive-tfx-hls.cdn-0.diff.tf1.fr/.../prod/TFX/cmaf/out/) et reconstruit
+  deux URLs finales : audio (TFX-mp4a_140800_fra=20000.m3u8) et
+  video/image (TFX-avc1_1699968=10001.m3u8). Retourne la URL video pour
+  insertion dans la playlist mais sauvegarde et notifie aussi l'URL audio.
+- Conserve le comportement précédent (préférer le master raw quand disponible).
 """
 
 import os
@@ -17,7 +19,7 @@ import logging
 import requests
 from datetime import datetime, timezone
 
-# ─── LOGGING ─────────────────────────────────────────────────────────────────
+# ─── LOGGING ────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -26,7 +28,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("tfx-updater")
 
-# ─── CONFIG ──────────────────────────────────────────────────────────────────
+# ─── CONFIG ────────────────────────────────────────────────────────────
 PARATV_REPO         = "Paradise-91/ParaTV"
 PARATV_STREAMS_DIR  = "streams"
 PLAYLIST_FILE       = "exotic-tv-playlist.m3u"
@@ -48,10 +50,18 @@ MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
 REQUEST_TIMEOUT = 20
 
-# ─── SESSION ─────────────────────────────────────────────────────────────────
+# suffixes to append to the tokenised base when we detect it in ParaTV files
+AUDIO_SUFFIX = "TFX-mp4a_140800_fra=20000.m3u8"
+VIDEO_SUFFIX = "TFX-avc1_1699968=10001.m3u8"
+# regex to capture the tokenised base up to /prod/TFX/cmaf/out/
+BASE_RE = re.compile(r"(https?://[^/]+(?:/[^/]+)*/prod/TFX/cmaf/out/)")
+
+# ─── SESSION ───────────────────────────────────────────────────────────
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.5"})
+SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.6"})
 _DEFAULT_BRANCH_CACHE = None
+# last detected audio url (set when we reconstruct from tokenised base)
+LAST_AUDIO_URL: str | None = None
 
 
 def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> requests.Response:
@@ -76,7 +86,7 @@ def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> request
             delay *= 2
     raise RuntimeError(f"Impossible de joindre {url} : {last_exc}")
 
-# ─── GITHUB API ──────────────────────────────────────────────────────────────
+# ─── GITHUB API ─────────────────────────────────────────────────────────
 def gh_headers() -> dict:
     h = {"Accept": "application/vnd.github.v3+json"}
     if GITHUB_TOKEN:
@@ -141,7 +151,7 @@ def github_put(path: str, content: str, sha: str | None, message: str) -> dict:
     r.raise_for_status()
     return r.json()
 
-# ─── SCAN PARATV ─────────────────────────────────────────────────────────────
+# ─── SCAN PARATV ────────────────────────────────────────────────────────
 def find_tfx_url() -> str:
     log.info("🔍 Scan du repo ParaTV…")
     h = gh_headers()
@@ -182,20 +192,16 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
     """
     Télécharge le fichier .m3u8 de ParaTV et retourne la bonne URL.
 
-    Structure confirmée des logs :
-      L08: #EXT-X-STREAM-INF:...,AUDIO="audio-AACL-141",...
-      L09: https://alive-tfx-hls.cdn-0.diff.tf1.fr/hls/live/.../index.m3u8?...
-      (L01-L07 contiennent #EXT-X-MEDIA avec les pistes audio séparées)
-
-    → Les variantes (L09, L11, L13) référencent un groupe audio "audio-AACL-141"
-      défini dans #EXT-X-MEDIA en haut du fichier.
-    → Si on met une URL de variante dans la playlist, le player ne trouve pas
-      les pistes audio car il n'a pas le master.
-    → SOLUTION : retourner l'URL raw du fichier ParaTV lui-même
-      (via raw.githubusercontent.com) — c'est le vrai master HLS complet
-      avec #EXT-X-MEDIA + #EXT-X-STREAM-INF, que tous les players IPTV
-      savent lire pour sélectionner audio+vidéo automatiquement.
+    Comportement :
+    - si le fichier contient un master HLS (#EXT-X-STREAM-INF) -> retourne le
+      download_url (raw GitHub) du master (meilleure compatibilité audio+vidéo)
+    - sinon, si on détecte une base tokenisée TF1 (alive-tfx-hls.../prod/TFX/cmaf/out/)
+      on reconstruit deux URLs (audio/video) en ajoutant des suffixes connus.
+      La fonction retourne l'URL vidéo (TFX-avc1_...) pour la playlist mais
+      stocke l'URL audio dans LAST_AUDIO_URL pour la notification / cache.
+    - sinon, si le fichier contient une URL directe, retourne la première.
     """
+    global LAST_AUDIO_URL
     raw_url = file_info.get("download_url")
     if not raw_url:
         return None
@@ -216,14 +222,25 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
         if "#EXT-X-STREAM-INF" in text:
             log.info(f"📋 Master HLS détecté : {fname}")
 
-            # Construire l'URL raw du fichier ParaTV
-            # download_url = https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/.../file.m3u8
-            # C'est exactement cette URL qu'on veut mettre dans la playlist :
-            # elle pointe vers le master complet avec toutes les pistes audio/vidéo
             master_url = raw_url
 
             log.info(f"✅ TFX master complet (audio+vidéo) : {master_url[:80]}…")
+            # clear any previous audio url since master covers it
+            LAST_AUDIO_URL = None
             return master_url
+
+        # ── Chercher une base tokenisée TF1 et reconstruire audio+video URLs ──
+        bases = list(dict.fromkeys(m.group(1) for m in BASE_RE.finditer(text)))
+        if bases:
+            base = bases[0]
+            audio_url = base + AUDIO_SUFFIX
+            video_url = base + VIDEO_SUFFIX
+            LAST_AUDIO_URL = audio_url
+            log.info(f"🔗 Base tokenisée détectée : {base[:80]}…")
+            log.info(f"    audio : {audio_url[:120]}…")
+            log.info(f"    video : {video_url[:120]}…")
+            # Retourner la video URL pour la playlist (les players chargeront la .m3u8)
+            return video_url
 
         # ── Stream direct (pas de variantes) ──
         all_urls = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
@@ -231,13 +248,14 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
             return None
 
         log.info(f"✅ TFX stream direct : {fname} → {all_urls[0][:80]}…")
+        LAST_AUDIO_URL = None
         return all_urls[0]
 
     except Exception as exc:
         log.warning(f"Erreur {file_info.get('name', '?')} : {exc}")
         return None
 
-# ─── PLAYLIST ────────────────────────────────────────────────────────────────
+# ─── PLAYLIST ───────────────────────────────────────────────────────────
 def update_playlist(new_url: str) -> int:
     log.info(f"📝 Lecture de {PLAYLIST_FILE}…")
     content = github_get_raw(PLAYLIST_FILE)
@@ -297,7 +315,7 @@ def update_playlist(new_url: str) -> int:
     log.info(f"✅ Playlist mise à jour — {count} remplacement(s)")
     return count
 
-# ─── CACHE ───────────────────────────────────────────────────────────────────
+# ─── CACHE ─────────────────────────────────────────────────────────────
 def load_cache() -> tuple[dict, str | None]:
     try:
         content = github_get_raw(CACHE_FILE)
@@ -305,10 +323,10 @@ def load_cache() -> tuple[dict, str | None]:
         return json.loads(content), sha
     except FileNotFoundError:
         log.info("Cache absent — sera créé après la première mise à jour")
-        return {"last_url": "", "last_updated": "", "update_count": 0}, None
+        return {"last_url": "", "last_audio_url": "", "last_updated": "", "update_count": 0}, None
     except Exception as exc:
         log.warning(f"Cache illisible ({exc}) — réinitialisation")
-        return {"last_url": "", "last_updated": "", "update_count": 0}, None
+        return {"last_url": "", "last_audio_url": "", "last_updated": "", "update_count": 0}, None
 
 
 def save_cache(cache: dict, sha: str | None) -> None:
@@ -323,8 +341,8 @@ def save_cache(cache: dict, sha: str | None) -> None:
     except Exception as exc:
         log.warning(f"Cache non sauvegardé : {exc}")
 
-# ─── DISCORD ─────────────────────────────────────────────────────────────────
-def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
+# ─── DISCORD ───────────────────────────────────────────────────────────
+def notify_discord(old_url: str, new_url: str, count: int, total: int, audio_url: str | None = None) -> None:
     if not DISCORD_WEBHOOK_TFX:
         log.warning("⚠️ DISCORD_WEBHOOK_TFX absent")
         return
@@ -332,18 +350,22 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
     def trunc(u: str, n: int = 100) -> str:
         return u[:n] + "…" if len(u) > n else u
 
+    fields = [
+        {"name": "✅ Nouvelle URL",   "value": f"```{trunc(new_url)}```", "inline": False},
+        {"name": "💀 Ancienne URL",   "value": f"```{trunc(old_url) if old_url else 'N/A'}```", "inline": False},
+        {"name": "🔢 Mise à jour n°", "value": str(total), "inline": True},
+        {"name": "🕐 Heure",          "value": _now(),     "inline": True},
+    ]
+    if audio_url:
+        fields.insert(1, {"name": "🔊 Audio URL", "value": f"```{trunc(audio_url)}```", "inline": False})
+
     payload = {
         "embeds": [{
             "title": "📺 TFX — URL mise à jour automatiquement",
             "description": f"**{count}** occurrence(s) dans `{PLAYLIST_FILE}`",
             "color": 0xf472b6,
-            "fields": [
-                {"name": "✅ Nouvelle URL",   "value": f"```{trunc(new_url)}```", "inline": False},
-                {"name": "💀 Ancienne URL",   "value": f"```{trunc(old_url) if old_url else 'N/A'}```", "inline": False},
-                {"name": "🔢 Mise à jour n°", "value": str(total), "inline": True},
-                {"name": "🕐 Heure",          "value": _now(),     "inline": True},
-            ],
-            "footer": {"text": "Exotic TFX Auto-Updater v4.5 • 🌴 Pink Paradise"},
+            "fields": fields,
+            "footer": {"text": "Exotic TFX Auto-Updater v4.6 • 🌴 Pink Paradise"},
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }]
     }
@@ -357,7 +379,7 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
     except Exception as exc:
         log.warning(f"❌ Discord KO : {exc}")
 
-# ─── UTILS ───────────────────────────────────────────────────────────────────
+# ─── UTILS ─────────────────────────────────────────────────────────────
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
 
@@ -369,7 +391,7 @@ def _check_config() -> None:
     if not DISCORD_WEBHOOK_TFX:
         log.warning("⚠️ DISCORD_WEBHOOK_TFX non défini")
 
-# ─── MAIN ────────────────────────────────────────────────────────────────────
+# ─── MAIN ──────────────────────────────────────────────────────────────
 def main() -> None:
     log.info("─" * 55)
     log.info(f"📺 Exotic TFX Auto-Updater v4.6 — {_now()}")
@@ -403,13 +425,14 @@ def main() -> None:
         log.error("❌ Aucun remplacement — arrêt")
         sys.exit(1)
 
+    # sauvegarder aussi l'audio URL si elle a été reconstruite
     cache["last_url"] = new_url
+    cache["last_audio_url"] = LAST_AUDIO_URL or cache.get("last_audio_url", "")
     cache["update_count"] = cache.get("update_count", 0) + 1
     save_cache(cache, cache_sha)
-    notify_discord(last_url, new_url, count, cache["update_count"])
+    notify_discord(last_url, new_url, count, cache["update_count"], cache.get("last_audio_url"))
     log.info("🎉 Terminé avec succès !")
 
 
 if __name__ == "__main__":
     main()
-
