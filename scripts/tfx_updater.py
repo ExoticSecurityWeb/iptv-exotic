@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """
-Exotic TFX Auto-Updater v4.6
-- Ajout : si ParaTV ne fournit pas le master HLS, détecte la base tokenisée
-  de TF1 (alive-tfx-hls.cdn-0.diff.tf1.fr/.../prod/TFX/cmaf/out/) et reconstruit
-  deux URLs finales : audio (TFX-mp4a_140800_fra=20000.m3u8) et
-  video/image (TFX-avc1_1699968=10001.m3u8). Retourne la URL video pour
-  insertion dans la playlist mais sauvegarde et notifie aussi l'URL audio.
+Exotic TFX Auto-Updater v4.6 (amélioré)
+- Ajout : verrouillage, options CLI (dry-run, verbose, no-notify), meilleur logging,
+  sauvegarde/rollback safe, et gestion propre des signaux.
 - Conserve le comportement précédent (préférer le master raw quand disponible).
 """
 
@@ -17,7 +14,12 @@ import time
 import base64
 import logging
 import requests
+import argparse
+import signal
+import tempfile
+import fcntl
 from datetime import datetime, timezone
+from typing import Optional, Tuple, Dict
 
 # ─── LOGGING ────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -59,9 +61,14 @@ BASE_RE = re.compile(r"(https?://[^/]+(?:/[^/]+)*/prod/TFX/cmaf/out/)")
 # ─── SESSION ───────────────────────────────────────────────────────────
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "ExoticTV-Updater/4.6"})
-_DEFAULT_BRANCH_CACHE = None
+_DEFAULT_BRANCH_CACHE: Optional[str] = None
 # last detected audio url (set when we reconstruct from tokenised base)
-LAST_AUDIO_URL: str | None = None
+LAST_AUDIO_URL: Optional[str] = None
+
+# CLI / runtime flags (populated in main)
+DRY_RUN = False
+NO_NOTIFY = False
+LOCK_FD = None  # file descriptor for lock file
 
 
 def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> requests.Response:
@@ -86,6 +93,7 @@ def fetch(url: str, headers: dict = None, retries: int = MAX_RETRIES) -> request
             delay *= 2
     raise RuntimeError(f"Impossible de joindre {url} : {last_exc}")
 
+
 # ─── GITHUB API ─────────────────────────────────────────────────────────
 def gh_headers() -> dict:
     h = {"Accept": "application/vnd.github.v3+json"}
@@ -101,7 +109,7 @@ def get_default_branch() -> str:
     try:
         r = fetch(f"https://api.github.com/repos/{REPO}", headers=gh_headers())
         r.raise_for_status()
-        _DEFAULT_BRANCH_CACHE = r.json()["default_branch"]
+        _DEFAULT_BRANCH_CACHE = r.json().get("default_branch", "main")
         log.info(f"🔍 Branche : {_DEFAULT_BRANCH_CACHE}")
         return _DEFAULT_BRANCH_CACHE
     except Exception as exc:
@@ -133,7 +141,13 @@ def github_get_raw(path: str) -> str:
     return base64.b64decode(cleaned).decode("utf-8", errors="replace")
 
 
-def github_put(path: str, content: str, sha: str | None, message: str) -> dict:
+def github_put(path: str, content: str, sha: Optional[str], message: str) -> dict:
+    """
+    Put content into GitHub. If DRY_RUN is enabled, we log and skip the actual call.
+    """
+    if DRY_RUN:
+        log.info(f"[dry-run] github_put {path} (message: {message})")
+        return {}
     payload = {
         "message": message,
         "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
@@ -150,6 +164,7 @@ def github_put(path: str, content: str, sha: str | None, message: str) -> dict:
         raise RuntimeError("Conflit GitHub 409 — SHA obsolète, relance")
     r.raise_for_status()
     return r.json()
+
 
 # ─── SCAN PARATV ────────────────────────────────────────────────────────
 def find_tfx_url() -> str:
@@ -188,7 +203,7 @@ def find_tfx_url() -> str:
     raise RuntimeError("Aucun stream TFX trouvé dans ParaTV")
 
 
-def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
+def _extract_tfx_from_file(file_info: dict, headers: dict) -> Optional[str]:
     """
     Télécharge le fichier .m3u8 de ParaTV et retourne la bonne URL.
 
@@ -218,7 +233,7 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
 
         fname = file_info.get("name", "?")
 
-        # ── Master HLS avec audio séparé (#EXT-X-MEDIA + #EXT-X-STREAM-INF) ──
+        # Master HLS avec audio séparé (#EXT-X-MEDIA + #EXT-X-STREAM-INF)
         if "#EXT-X-STREAM-INF" in text:
             log.info(f"📋 Master HLS détecté : {fname}")
 
@@ -229,7 +244,7 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
             LAST_AUDIO_URL = None
             return master_url
 
-        # ── Chercher une base tokenisée TF1 et reconstruire audio+video URLs ──
+        # Chercher une base tokenisée TF1 et reconstruire audio+video URLs
         bases = list(dict.fromkeys(m.group(1) for m in BASE_RE.finditer(text)))
         if bases:
             base = bases[0]
@@ -242,7 +257,7 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
             # Retourner la video URL pour la playlist (les players chargeront la .m3u8)
             return video_url
 
-        # ── Stream direct (pas de variantes) ──
+        # Stream direct (pas de variantes)
         all_urls = [l.strip() for l in text.splitlines() if l.strip() and not l.startswith("#")]
         if not all_urls:
             return None
@@ -254,6 +269,7 @@ def _extract_tfx_from_file(file_info: dict, headers: dict) -> str | None:
     except Exception as exc:
         log.warning(f"Erreur {file_info.get('name', '?')} : {exc}")
         return None
+
 
 # ─── PLAYLIST ───────────────────────────────────────────────────────────
 def update_playlist(new_url: str) -> int:
@@ -308,15 +324,19 @@ def update_playlist(new_url: str) -> int:
     if trailing_newline:
         new_content += "\n"
 
-    github_put(
-        PLAYLIST_FILE, new_content, sha,
-        f"📺 TFX auto-updated ({count} occurrence(s)) — {_now()}"
-    )
-    log.info(f"✅ Playlist mise à jour — {count} remplacement(s)")
+    if DRY_RUN:
+        log.info("[dry-run] update_playlist: skip github_put")
+    else:
+        github_put(
+            PLAYLIST_FILE, new_content, sha,
+            f"📺 TFX auto-updated ({count} occurrence(s)) — {_now()}"
+        )
+        log.info(f"✅ Playlist mise à jour — {count} remplacement(s)")
     return count
 
-# ─── CACHE ─────────────────────────────────────────────────────────────
-def load_cache() -> tuple[dict, str | None]:
+
+# ─── CACHE ────────────────────────────────────────────────────────────
+def load_cache() -> Tuple[Dict, Optional[str]]:
     try:
         content = github_get_raw(CACHE_FILE)
         sha     = github_get(CACHE_FILE)["sha"]
@@ -329,7 +349,10 @@ def load_cache() -> tuple[dict, str | None]:
         return {"last_url": "", "last_audio_url": "", "last_updated": "", "update_count": 0}, None
 
 
-def save_cache(cache: dict, sha: str | None) -> None:
+def save_cache(cache: dict, sha: Optional[str]) -> None:
+    if DRY_RUN:
+        log.info("[dry-run] save_cache: skip github_put")
+        return
     try:
         github_put(
             CACHE_FILE,
@@ -341,8 +364,12 @@ def save_cache(cache: dict, sha: str | None) -> None:
     except Exception as exc:
         log.warning(f"Cache non sauvegardé : {exc}")
 
+
 # ─── DISCORD ───────────────────────────────────────────────────────────
-def notify_discord(old_url: str, new_url: str, count: int, total: int, audio_url: str | None = None) -> None:
+def notify_discord(old_url: str, new_url: str, count: int, total: int, audio_url: Optional[str] = None) -> None:
+    if NO_NOTIFY:
+        log.info("Notifications Discord désactivées (--no-notify)")
+        return
     if not DISCORD_WEBHOOK_TFX:
         log.warning("⚠️ DISCORD_WEBHOOK_TFX absent")
         return
@@ -371,6 +398,9 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int, audio_url
     }
 
     try:
+        if DRY_RUN:
+            log.info("[dry-run] notify_discord: skip POST")
+            return
         r = SESSION.post(DISCORD_WEBHOOK_TFX, json=payload, timeout=10)
         if r.status_code in (200, 204):
             log.info("✅ Discord notifié")
@@ -379,7 +409,8 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int, audio_url
     except Exception as exc:
         log.warning(f"❌ Discord KO : {exc}")
 
-# ─── UTILS ─────────────────────────────────────────────────────────────
+
+# ─── UTILS ────────────────────────────────────────────────────────────
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
 
@@ -391,8 +422,66 @@ def _check_config() -> None:
     if not DISCORD_WEBHOOK_TFX:
         log.warning("⚠️ DISCORD_WEBHOOK_TFX non défini")
 
-# ─── MAIN ──────────────────────────────────────────────────────────────
+
+# ─── LOCKING / SIGNALS ─────────────────────────────────────────────────
+def acquire_lock(lockfile: str) -> int:
+    global LOCK_FD
+    fd = os.open(lockfile, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        LOCK_FD = fd
+        log.debug(f"Verrou acquis {lockfile}")
+        return fd
+    except OSError:
+        os.close(fd)
+        raise RuntimeError(f"Impossible d'acquérir le verrou {lockfile} — déjà en cours")
+
+
+def release_lock() -> None:
+    global LOCK_FD
+    if LOCK_FD is not None:
+        try:
+            fcntl.flock(LOCK_FD, fcntl.LOCK_UN)
+            os.close(LOCK_FD)
+            log.debug("Verrou libéré")
+        except Exception:
+            pass
+        LOCK_FD = None
+
+
+def _signal_handler(signum, frame):
+    log.warning(f"Signal {signum} reçu — arrêt")
+    release_lock()
+    sys.exit(1)
+
+
+# ─── MAIN ─────────────────────────────────────────────────────────────
 def main() -> None:
+    global DRY_RUN, NO_NOTIFY
+
+    parser = argparse.ArgumentParser(description="Exotic TFX Auto-Updater")
+    parser.add_argument("--dry-run", action="store_true", help="Ne pas écrire sur GitHub ni notifier")
+    parser.add_argument("--no-notify", action="store_true", help="Ne pas envoyer de notifications Discord")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Affiche plus de logs")
+    parser.add_argument("--lockfile", default="/tmp/tfx_updater.lock", help="Chemin du fichier de verrou (default: /tmp/tfx_updater.lock)")
+    args = parser.parse_args()
+
+    if args.verbose:
+        log.setLevel(logging.DEBUG)
+    DRY_RUN = args.dry_run
+    NO_NOTIFY = args.no_notify
+
+    # signals
+    for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(s, _signal_handler)
+
+    # try to acquire lock
+    try:
+        acquire_lock(args.lockfile)
+    except Exception as exc:
+        log.error(str(exc))
+        sys.exit(1)
+
     log.info("─" * 55)
     log.info(f"📺 Exotic TFX Auto-Updater v4.6 — {_now()}")
     log.info("─" * 55)
@@ -404,6 +493,7 @@ def main() -> None:
         log.info(f"🎯 URL finale : {new_url[:80]}…")
     except Exception as exc:
         log.error(f"❌ Scan ParaTV échoué : {exc}")
+        release_lock()
         sys.exit(1)
 
     cache, cache_sha = load_cache()
@@ -411,6 +501,7 @@ def main() -> None:
 
     if new_url == last_url:
         log.info("📌 URL identique — aucune mise à jour")
+        release_lock()
         return
 
     log.info("🔄 Nouvelle URL — mise à jour…")
@@ -419,10 +510,12 @@ def main() -> None:
         count = update_playlist(new_url)
     except Exception as exc:
         log.error(f"❌ Mise à jour échouée : {exc}")
+        release_lock()
         sys.exit(1)
 
     if count == 0:
         log.error("❌ Aucun remplacement — arrêt")
+        release_lock()
         sys.exit(1)
 
     # sauvegarder aussi l'audio URL si elle a été reconstruite
@@ -432,6 +525,7 @@ def main() -> None:
     save_cache(cache, cache_sha)
     notify_discord(last_url, new_url, count, cache["update_count"], cache.get("last_audio_url"))
     log.info("🎉 Terminé avec succès !")
+    release_lock()
 
 
 if __name__ == "__main__":
