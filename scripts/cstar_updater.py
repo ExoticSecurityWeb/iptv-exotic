@@ -140,77 +140,24 @@ def github_put(path: str, content: str, sha, message: str) -> dict:
 # ─── SCAN PARATV ─────────────────────────────────────────────────────────────
 def find_cstar_url() -> str:
     """
-    Cherche en priorité le fichier connu streams/canalplus/cstar-dm.m3u8,
-    sinon scanne tout le dossier streams/ pour trouver un fichier CStar.
+    Le chemin du fichier CStar sur ParaTV est fixe :
+    streams/canalplus/cstar-dm.m3u8
     """
     h = gh_headers()
-
-    # ── Essai 1 : chemin connu et stable ──────────────────────────────────
     known_path = f"{PARATV_STREAMS_DIR}/canalplus/cstar-dm.m3u8"
     known_url  = f"https://raw.githubusercontent.com/{PARATV_REPO}/main/{known_path}"
-    log.info(f"🔍 Tentative chemin connu : {known_path}")
-    try:
-        r = fetch(known_url, headers=h)
-        if r.status_code == 200 and any(kw in r.text.upper() for kw in CSTAR_KEYWORDS_POSITIVE):
-            log.info(f"✅ Fichier trouvé au chemin connu !")
-            return _resolve_master_url(r.text, known_url)
-    except Exception as exc:
-        log.warning(f"Chemin connu KO ({exc}) — scan complet")
 
-    # ── Essai 2 : scan dynamique complet ──────────────────────────────────
-    log.info("🔍 Scan complet du repo ParaTV pour CStar…")
-    r = fetch(f"https://api.github.com/repos/{PARATV_REPO}/contents/{PARATV_STREAMS_DIR}", headers=h)
-    if r.status_code == 404:
-        raise RuntimeError(f"Dossier {PARATV_STREAMS_DIR}/ introuvable")
-    r.raise_for_status()
+    log.info(f"🔍 Fetch : {known_path}")
+    r = fetch(known_url, headers=h)
 
-    candidates = []
-    for item in r.json():
-        if item["type"] == "file" and item["name"].lower().endswith(".m3u8"):
-            candidates.append(item)
-        elif item["type"] == "dir":
-            try:
-                r2 = fetch(item["url"], headers=h)
-                r2.raise_for_status()
-                for f in r2.json():
-                    if f["type"] == "file" and f["name"].lower().endswith(".m3u8"):
-                        candidates.append(f)
-            except Exception as exc:
-                log.warning(f"Impossible de lister {item['name']}/ : {exc}")
+    if r.status_code != 200:
+        raise RuntimeError(f"Fichier introuvable sur ParaTV : HTTP {r.status_code}")
 
-    log.info(f"🔎 {len(candidates)} fichier(s) .m3u8 à analyser")
+    text = r.text
+    if not any(kw in text.upper() for kw in CSTAR_KEYWORDS_POSITIVE):
+        log.warning("⚠️ Le fichier ne mentionne pas CStar — contenu inattendu, on continue quand même")
 
-    for c in candidates:
-        url = _extract_cstar_from_file(c, h)
-        if url:
-            return url
-
-    raise RuntimeError("Aucun stream CStar trouvé dans ParaTV")
-
-
-def _extract_cstar_from_file(file_info: dict, headers: dict) -> str | None:
-    raw_url = file_info.get("download_url")
-    if not raw_url:
-        return None
-    try:
-        r = fetch(raw_url, headers=headers)
-        if r.status_code != 200:
-            return None
-        text = r.text
-        text_upper = text.upper()
-
-        if not any(kw in text_upper for kw in CSTAR_KEYWORDS_POSITIVE):
-            return None
-        if any(kw in text_upper for kw in CSTAR_KEYWORDS_EXCLUDE):
-            return None
-
-        fname = file_info.get("name", "?")
-        log.info(f"✅ Fichier CStar trouvé : {fname}")
-        return _resolve_master_url(text, raw_url)
-
-    except Exception as exc:
-        log.warning(f"Erreur {file_info.get('name', '?')} : {exc}")
-        return None
+    return _resolve_master_url(text, known_url)
 
 
 def _resolve_master_url(text: str, raw_url: str) -> str:
