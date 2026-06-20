@@ -1,0 +1,30 @@
+name: ✏️ Exotic France3 Rename (one-shot)
+
+on:
+  workflow_dispatch:   # Lancement MANUEL uniquement — pas de cron
+
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install deps
+        run: pip install requests
+
+      - name: ✏️ Rename France 3 → France 3 Nouvelle Aquitaine
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/france3_rename.py
