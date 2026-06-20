@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Exotic CStar Auto-Updater v2.0
-- Scanne dynamiquement le repo ParaTV pour trouver le fichier CStar
-- Retourne le master HLS complet (audio+vidéo) via raw.githubusercontent
-- Met à jour exotic-tv-playlist.m3u automatiquement
+Exotic CStar Auto-Updater v3.0
+- Lit streams/canalplus/cstar-dm.m3u8 sur ParaTV (chemin fixe)
+- Parse les variantes #EXT-X-STREAM-INF (chacune a déjà audio+vidéo: CODECS="avc1...,mp4a...")
+- Choisit la meilleure résolution disponible (1080 > 720 > 480 > 380 > 240)
+- Met à jour exotic-tv-playlist.m3u si l'URL a changé
 - Notifie Discord
 """
 
@@ -27,12 +28,12 @@ logging.basicConfig(
 log = logging.getLogger("cstar-updater")
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-PARATV_REPO          = "Paradise-91/ParaTV"
-PARATV_STREAMS_DIR   = "streams"
-PLAYLIST_FILE        = "exotic-tv-playlist.m3u"
-CACHE_FILE           = "cstar_cache.json"
-REPO                 = "ExoticSecurityWeb/iptv-exotic"
-GITHUB_TOKEN         = os.environ.get("GITHUB_TOKEN", "")
+PARATV_REPO           = "Paradise-91/ParaTV"
+PARATV_FILE_PATH      = "streams/canalplus/cstar-dm.m3u8"
+PLAYLIST_FILE         = "exotic-tv-playlist.m3u"
+CACHE_FILE            = "cstar_cache.json"
+REPO                  = "ExoticSecurityWeb/iptv-exotic"
+GITHUB_TOKEN          = os.environ.get("GITHUB_TOKEN", "")
 DISCORD_WEBHOOK_CSTAR = os.environ.get("DISCORD_WEBHOOK_CSTAR", "")
 
 CSTAR_EXACT_NAMES = {
@@ -40,19 +41,17 @@ CSTAR_EXACT_NAMES = {
     "cstar (720p)",
     "cstar (720p) [geo-blocked]",
     "cstar hd",
+    "cstar (1080p)",
     "c star (720p) [geo-blocked]",
     "c star",
 }
-
-CSTAR_KEYWORDS_POSITIVE = {"CSTAR", "C STAR", "C-STAR", "D17"}
-CSTAR_KEYWORDS_EXCLUDE  = set()  # rien à exclure pour CStar
 
 MAX_RETRIES     = 3
 RETRY_BACKOFF   = 2
 REQUEST_TIMEOUT = 20
 
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "ExoticTV-Updater/2.0"})
+SESSION.headers.update({"User-Agent": "ExoticTV-Updater/3.0"})
 _DEFAULT_BRANCH_CACHE = None
 
 
@@ -137,41 +136,29 @@ def github_put(path: str, content: str, sha, message: str) -> dict:
     r.raise_for_status()
     return r.json()
 
-# ─── SCAN PARATV ─────────────────────────────────────────────────────────────
+# ─── TROUVER L'URL CSTAR ─────────────────────────────────────────────────────
 def find_cstar_url() -> str:
     """
-    Le chemin du fichier CStar sur ParaTV est fixe :
-    streams/canalplus/cstar-dm.m3u8
+    Fetch streams/canalplus/cstar-dm.m3u8 et parse les variantes
+    #EXT-X-STREAM-INF pour choisir la meilleure résolution.
+    Chaque variante a déjà CODECS="avc1...,mp4a..." → audio+vidéo combinés,
+    donc on prend juste l'URL de la meilleure résolution, point.
     """
-    h = gh_headers()
-    known_path = f"{PARATV_STREAMS_DIR}/canalplus/cstar-dm.m3u8"
-    known_url  = f"https://raw.githubusercontent.com/{PARATV_REPO}/main/{known_path}"
+    raw_url = f"https://raw.githubusercontent.com/{PARATV_REPO}/main/{PARATV_FILE_PATH}"
+    log.info(f"🔍 Fetch : {PARATV_FILE_PATH}")
 
-    log.info(f"🔍 Fetch : {known_path}")
-    r = fetch(known_url, headers=h)
-
+    r = fetch(raw_url)
     if r.status_code != 200:
-        raise RuntimeError(f"Fichier introuvable sur ParaTV : HTTP {r.status_code}")
+        raise RuntimeError(f"HTTP {r.status_code} sur {PARATV_FILE_PATH}")
 
-    text = r.text
-    if not any(kw in text.upper() for kw in CSTAR_KEYWORDS_POSITIVE):
-        log.warning("⚠️ Le fichier ne mentionne pas CStar — contenu inattendu, on continue quand même")
-
-    return _resolve_master_url(text, known_url)
-
-
-def _resolve_master_url(text: str, raw_url: str) -> str:
-    """
-    Le fichier ParaTV CStar contient plusieurs variantes #EXT-X-STREAM-INF,
-    chacune avec CODECS="avc1...,mp4a..." (audio+vidéo déjà dans la même URL,
-    pas de piste audio séparée comme TFX).
-
-    On parse les lignes pour choisir la meilleure résolution disponible
-    (priorité: 1080 > 720 > 480 > 380 > 240) et on retourne CETTE URL précise,
-    pas le fichier master en entier.
-    """
+    text  = r.text
     lines = text.splitlines()
-    variants = []  # liste de (resolution_height, bandwidth, url)
+
+    log.info(f"📄 Fichier reçu ({len(lines)} lignes) :")
+    for l in lines:
+        log.info(f"   {l[:120]}")
+
+    variants = []  # (height, bandwidth, url)
 
     for i, line in enumerate(lines):
         if line.startswith("#EXT-X-STREAM-INF"):
@@ -179,23 +166,28 @@ def _resolve_master_url(text: str, raw_url: str) -> str:
             bw_match  = re.search(r'BANDWIDTH=(\d+)', line)
             height = int(res_match.group(2)) if res_match else 0
             bw     = int(bw_match.group(1)) if bw_match else 0
-            # L'URL est sur la ligne suivante (pas un commentaire)
-            if i + 1 < len(lines) and not lines[i+1].startswith("#"):
-                url = lines[i+1].strip()
+
+            # Chercher l'URL sur la/les lignes suivantes (sauter les # éventuels)
+            j = i + 1
+            while j < len(lines) and lines[j].startswith("#"):
+                j += 1
+            if j < len(lines) and lines[j].strip():
+                url = lines[j].strip()
                 variants.append((height, bw, url))
+                log.info(f"   ↳ variante détectée : {height}p, {bw}bps")
 
     if not variants:
-        log.warning("⚠️ Aucune variante #EXT-X-STREAM-INF trouvée — fallback sur première URL")
-        all_urls = [l.strip() for l in lines if l.strip() and not l.startswith("#")]
-        return all_urls[0] if all_urls else raw_url
+        log.error("❌ Aucune variante #EXT-X-STREAM-INF trouvée dans le fichier")
+        raise RuntimeError("Pas de variante HLS trouvée — structure de fichier inattendue")
 
-    # Trier par résolution puis bandwidth décroissants → meilleure qualité en premier
+    # Trier par résolution puis bandwidth, décroissant → meilleure qualité en premier
     variants.sort(key=lambda v: (v[0], v[1]), reverse=True)
-    best_height, best_bw, best_url = variants[0]
 
-    log.info(f"📊 {len(variants)} variante(s) trouvée(s) : {[f'{h}p' for h,_,_ in variants]}")
-    log.info(f"✅ Meilleure qualité choisie : {best_height}p ({best_bw} bps)")
-    log.info(f"   URL : {best_url[:90]}…")
+    log.info(f"📊 {len(variants)} variante(s) trouvée(s), triées : {[f'{h}p' for h,_,_ in variants]}")
+
+    best_height, best_bw, best_url = variants[0]
+    log.info(f"✅ Meilleure qualité retenue : {best_height}p ({best_bw} bps)")
+    log.info(f"   URL : {best_url}")
 
     return best_url
 
@@ -228,8 +220,8 @@ def update_playlist(new_url: str) -> int:
                     if i < len(lines) and not lines[i].startswith("#"):
                         old_url = lines[i]
                         log.info(f"  ↳ «{name}»")
-                        log.info(f"    ancien : {old_url[:90]}")
-                        log.info(f"    nouveau: {new_url[:90]}")
+                        log.info(f"    ancien : {old_url[:100]}")
+                        log.info(f"    nouveau: {new_url[:100]}")
                         i += 1
                         count += 1
                     new_lines.append(new_url)
@@ -238,11 +230,13 @@ def update_playlist(new_url: str) -> int:
         i += 1
 
     if count == 0:
-        log.error("❌ Aucune chaîne CStar trouvée !")
+        log.error("❌ Aucune chaîne CStar trouvée dans ta playlist !")
         log.error(f"   Noms cherchés : {sorted(CSTAR_EXACT_NAMES)}")
         cstar_names = [n for n in all_names if "star" in n.lower()]
         if cstar_names:
-            log.info(f"   Noms contenant 'star' : {cstar_names}")
+            log.info(f"   Noms contenant 'star' dans ta playlist : {cstar_names}")
+        else:
+            log.info("   Aucune chaîne contenant 'star' trouvée du tout.")
         return 0
 
     new_content = "\n".join(new_lines)
@@ -295,7 +289,7 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
             {"name": "🔢 Mise à jour n°", "value": str(total), "inline": True},
             {"name": "🕐 Heure", "value": _now(), "inline": True},
         ],
-        "footer": {"text": "Exotic CStar Auto-Updater v2.0 • 🌴 Pink Paradise"},
+        "footer": {"text": "Exotic CStar Auto-Updater v3.0 • 🌴 Pink Paradise"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }]}
 
@@ -322,26 +316,26 @@ def _check_config() -> None:
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 def main() -> None:
     log.info("─" * 55)
-    log.info(f"📺 Exotic CStar Auto-Updater v2.0 — {_now()}")
+    log.info(f"📺 Exotic CStar Auto-Updater v3.0 — {_now()}")
     log.info("─" * 55)
 
     _check_config()
 
     try:
         new_url = find_cstar_url()
-        log.info(f"🎯 URL finale : {new_url[:80]}…")
+        log.info(f"🎯 URL finale retenue : {new_url[:90]}…")
     except Exception as exc:
-        log.error(f"❌ Scan ParaTV échoué : {exc}")
+        log.error(f"❌ Recherche CStar échouée : {exc}")
         sys.exit(1)
 
     cache, cache_sha = load_cache()
     last_url = cache.get("last_url", "")
 
     if new_url == last_url:
-        log.info("📌 URL identique — aucune mise à jour")
+        log.info("📌 URL identique — aucune mise à jour nécessaire")
         return
 
-    log.info("🔄 Nouvelle URL — mise à jour…")
+    log.info("🔄 Nouvelle URL détectée — mise à jour…")
 
     try:
         count = update_playlist(new_url)
@@ -350,7 +344,7 @@ def main() -> None:
         sys.exit(1)
 
     if count == 0:
-        log.error("❌ Aucun remplacement — arrêt")
+        log.error("❌ Aucun remplacement effectué — arrêt")
         sys.exit(1)
 
     cache["last_url"] = new_url
