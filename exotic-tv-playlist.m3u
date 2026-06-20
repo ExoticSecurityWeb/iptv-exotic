@@ -20,7 +20,7 @@ http://151.80.18.177:86/W9_HD/index.m3u8
 #EXTINF:-1 tvg-id="Africa24English.fr@SD" tvg-name="TMC" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/tmc-fr.png",TMC
 http://151.80.18.177:86/TMC/index.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p)" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/9EMI4fm1iuQ/1NoIa9mL4IBjXvW.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/isQyuGZyqiQ/1NoIa9mL4IBjXvW.m3u8
 #EXTINF:-1 tvg-id="Onepiece.fr@SD" tvg-name="One Piece" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/3/34/One_Piece_%28ja%29_Logo.svg" group-title="PlutoTV",One Piece
 https://jmp2.uk/plu-6380c94947c72b0007ee9a13.m3u8
 #EXTINF:-1 tvg-id="ADNTVPlus.fr@SD" tvg-name="ADN TV+ (720p)" tvg-logo="https://i.imgur.com/HQZQyWt.png" group-title="Animation",ADN TV+ (720p)
@@ -32,7 +32,7 @@ https://archive.org/download/lo-fi-chillout-beach-vibes-2-hours-of-relaxing-ocea
 #EXTINF:-1 tvg-id="CNews.fr@SD" tvg-name="CNews (1080p)" tvg-logo="https://i.imgur.com/sSNhk2g.png" group-title="News",CNews (1080p)
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cnews.m3u8
 #EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
-https://live.eu-north-1a.cf.dmcdn.net/sec2(zRTijUlEbGNWedLQXCm1r23yPkE8x6YemOxA_rKYU34szx9Rhia5zz2wr0_RtkJL3fmkQ0ASTkGHUPKjf5BqHgn0toE2gQjYQPRmZJ2a_ne2CY2Q03G5GJKoKmTNj6iZ)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
+https://live.eu-north-1a.cf.dmcdn.net/sec2(46lQ_XM60mhEr6P2gu6kc7VE3MNUZWlWFXm8KLb84KmRHEjoVmiiuRXj8BkT2ZbQRyVhH7KIGSD5hY69qnAhUxmo5c9h4eHTYViNWsx6NVQ8B2-DK_NcSk5Lo14s3iT-)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
 #EXTINF:-1 tvg-id="Gulli.fr@SD" tvg-name="Gulli (720p)" tvg-logo="https://i.imgur.com/kqYssbW.png" group-title="Kids",Gulli (720p)
 https://origin-m6web.live.6cloud.fr/out/v1/6play/6play-gulli/cmaf_q2hyb21h/hls-short-sd.m3u8
 #EXTINF:-1 tvg-name="Palmi Winter TV ❄️" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Winter TV ❄️
