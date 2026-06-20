@@ -1,7 +1,21 @@
-name: ✏️ Exotic France3 Rename (one-shot)
+name: 🧟‍♀️ Exotic Channel Renamer
 
 on:
-  workflow_dispatch:   # Lancement MANUEL uniquement — pas de cron
+  workflow_dispatch:
+    inputs:
+      old_name:
+        description: "Nom actuel exact de la chaîne dans la playlist"
+        required: true
+        type: string
+      new_name:
+        description: "Nouveau nom souhaité"
+        required: true
+        type: string
+      new_url:
+        description: "Nouvelle URL (laisser vide pour garder l'actuelle)"
+        required: false
+        type: string
+        default: ""
 
 jobs:
   rename:
@@ -24,7 +38,10 @@ jobs:
       - name: 📦 Install deps
         run: pip install requests
 
-      - name: ✏️ Rename France 3 → France 3 Nouvelle Aquitaine
+      - name: 🧟‍♀️ Rename channel
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/france3_rename.py
+          OLD_NAME: ${{ inputs.old_name }}
+          NEW_NAME: ${{ inputs.new_name }}
+          NEW_URL: ${{ inputs.new_url }}
+        run: python scripts/rename_channel.py
