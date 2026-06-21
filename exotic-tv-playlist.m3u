@@ -20,7 +20,7 @@ http://151.80.18.177:86/W9_HD/index.m3u8
 #EXTINF:-1 tvg-id="Africa24English.fr@SD" tvg-name="TMC" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/tmc-fr.png",TMC
 http://151.80.18.177:86/TMC/index.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p)" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/HSE9skK8F9h3/XkWYBLiV6ZEOxAuS.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/RcKcOcFjrXfZ/XkWYBLiV6ZEOxAuS.m3u8
 #EXTINF:-1 tvg-id="Onepiece.fr@SD" tvg-name="One Piece" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/3/34/One_Piece_%28ja%29_Logo.svg" group-title="PlutoTV",One Piece
 https://jmp2.uk/plu-6380c94947c72b0007ee9a13.m3u8
 #EXTINF:-1 tvg-id="ADNTVPlus.fr@SD" tvg-name="ADN TV+ (720p)" tvg-logo="https://i.imgur.com/HQZQyWt.png" group-title="Animation",ADN TV+ (720p)
