@@ -1,6 +1,6 @@
 #EXTM3U
 #EXTINF:-1 tvg-id="TF1.fr@SD" tvg-name="TF1 (720p)" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 (720p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/3PGqpPqx0tQl/FySDMSO2HoZ9coC.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/HzybrJI5pBK/QSBD6MznnnRqaSrH.m3u8
 #EXTINF:-1 tvg-id="France2.fr@SD" tvg-name="France 2 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/France_2_2018.svg/960px-France_2_2018.svg.png" group-title="General",France 2 (1080p)
 http://69.64.57.208/france2/mono.m3u8
 #EXTINF:-1 tvg-id="3france.fr@SD" tvg-name="France 3 Nouvelle Aquitaine" tvg-logo="https://i.imgur.com/ZH4225T.jpeg" group-title="Entertainment",France 3 Nouvelle Aquitaine
@@ -20,7 +20,7 @@ http://151.80.18.177:86/W9_HD/index.m3u8
 #EXTINF:-1 tvg-id="Africa24English.fr@SD" tvg-name="TMC" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/tmc-fr.png",TMC
 http://151.80.18.177:86/TMC/index.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p)" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/HzybrJI5pBK/T8MheEQYF27snnxG.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/3PGqpPqx0tQl/T8MheEQYF27snnxG.m3u8
 #EXTINF:-1 tvg-id="Onepiece.fr@SD" tvg-name="One Piece" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/3/34/One_Piece_%28ja%29_Logo.svg" group-title="PlutoTV",One Piece
 https://jmp2.uk/plu-6380c94947c72b0007ee9a13.m3u8
 #EXTINF:-1 tvg-id="ADNTVPlus.fr@SD" tvg-name="ADN TV+ (720p)" tvg-logo="https://i.imgur.com/HQZQyWt.png" group-title="Animation",ADN TV+ (720p)
@@ -244,7 +244,7 @@ https://videas.agglo-lenslievin.fr/index.m3u8
 #EXTINF:-1 tvg-id="Telenantes.fr@SD" tvg-name="Telenantes (180p)" tvg-logo="https://i.imgur.com/G1SCqNI.png" group-title="Undefined",Telenantes (180p)
 https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/telenantes.m3u8
 #EXTINF:-1 tvg-id="TF1.fr@HD" tvg-name="TF1 HD (720p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 HD (720p) [Geo-Blocked]
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/3PGqpPqx0tQl/FySDMSO2HoZ9coC.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/HzybrJI5pBK/QSBD6MznnnRqaSrH.m3u8
 #EXTINF:-1 tvg-id="TF1SeriesFilms.fr@SD" tvg-name="TF1 Series Films (1080p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/4CJIDKQ.png" group-title="Movies",TF1 Series Films (1080p) [Geo-Blocked]
 https://viamotionhsi.netplus.ch/live/eds/hd1/browser-HLS8/hd1.m3u8
 #EXTINF:-1 tvg-id="TiVi5Monde.fr@SD" tvg-name="TiVi5 Monde [Geo-blocked]" tvg-logo="https://i.imgur.com/fVVKpmk.png" group-title="Undefined",TiVi5 Monde [Geo-blocked]
