@@ -5,3 +5,5 @@ https://stitcher-ipv4.pluto.tv/v2/stitch/embed/hls/channel/6380c94947c72b0007ee9
 http://86.202.245.66:9981/stream/channelid/1740296275?profile=pass
 #EXTINF:-1 tvg-name="TFX" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/83/TFX_logo_2018.svg/1920px-TFX_logo_2018.svg.png?_=20211222234220",TFX
 https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaXAiOiI3OS4xMjcuMTY5LjciLCJjbWNkIjoiIiwiZXhwIjoxNzgxODcxNTQ3LCJnaWQiOiJlNzIwMzhjMzU5NDg0MDc1YjgzOGUwNjY5NWI3ZDQ5NiIsImlhdCI6MTc4MTg1NzE0NywiaXNzIjoiZGVsaXZlcnkiLCJtYXhiIjowLCJzdGVtIjoiL3Byb2QvVEZYL2NtYWYvb3V0Iiwic3ViIjoiZTcyMDM4YzM1OTQ4NDA3NWI4MzhlMDY2OTViN2Q0OTYifQ.IOWUZkus1GDdUmI6YZd1H_hzLQfQReY1AHSEHBhR8zI/prod/TFX/cmaf/out/TFX-mp4a_140800_fra=20000.m3u8
+#EXTINF:-1 tvg-name="Palmi Meteo" tvg-logo="https://i.imgur.com/RPE2EDW_d.png?maxwidth=520&shape=thumb&fidelity=high",Palmi Meteo
+https://archive.org/details/palmimeteo3_202606
