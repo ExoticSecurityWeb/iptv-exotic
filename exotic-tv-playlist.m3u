@@ -1,6 +1,6 @@
 #EXTM3U
 #EXTINF:-1 tvg-id="TF1.fr@SD" tvg-name="TF1 (720p)" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 (720p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/uwmA72yedaZ1/0B2BsNjxTq6iSKi.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/Z7RM4DfkMty/0B2BsNjxTq6iSKi.m3u8
 #EXTINF:-1 tvg-id="France2.fr@SD" tvg-name="France 2 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/France_2_2018.svg/960px-France_2_2018.svg.png" group-title="General",France 2 (1080p)
 http://69.64.57.208/france2/mono.m3u8
 #EXTINF:-1 tvg-id="3france.fr@SD" tvg-name="France 3 Nouvelle Aquitaine" tvg-logo="https://i.imgur.com/ZH4225T.jpeg" group-title="Entertainment",France 3 Nouvelle Aquitaine
@@ -32,7 +32,7 @@ https://archive.org/download/lo-fi-chillout-beach-vibes-2-hours-of-relaxing-ocea
 #EXTINF:-1 tvg-id="CNews.fr@SD" tvg-name="CNews (1080p)" tvg-logo="https://i.imgur.com/sSNhk2g.png" group-title="News",CNews (1080p)
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cnews.m3u8
 #EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
-https://live.eu-north-1a.cf.dmcdn.net/sec2(j-TdMssE57YeTzMnMzyEEpiqqCWOvhGyUR24sknedx_BvNRxwCsRFOse0BtMDnII9Xkw7FqmfJKhz63tSp0-bHpZieqrzPpN5oFqhdnkQ8_5cM-Wq8ykUnaafaBgzOBh)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
+https://live.eu-north-1a.cf.dmcdn.net/sec2(fqNhvClVtiAP-boW3jDlOkgsT7Jk4u7FlOHrsK5A6FVItTKHFvKHPI6YtOBPW8aosc7dnqzn0qsOExOuJy7POnTceocxI3gRLEOz3molX9AvLjJbkSlGQIYaEtMPPH6z)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
 #EXTINF:-1 tvg-id="Gulli.fr@SD" tvg-name="Gulli (720p)" tvg-logo="https://i.imgur.com/kqYssbW.png" group-title="Kids",Gulli (720p)
 http://99.27.51.147:8080/Gulli/index.m3u8
 #EXTINF:-1 tvg-name="Palmi Winter TV ❄️" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Winter TV ❄️
@@ -244,7 +244,7 @@ https://videas.agglo-lenslievin.fr/index.m3u8
 #EXTINF:-1 tvg-id="Telenantes.fr@SD" tvg-name="Telenantes (180p)" tvg-logo="https://i.imgur.com/G1SCqNI.png" group-title="Undefined",Telenantes (180p)
 https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/telenantes.m3u8
 #EXTINF:-1 tvg-id="TF1.fr@HD" tvg-name="TF1 HD (720p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 HD (720p) [Geo-Blocked]
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/uwmA72yedaZ1/0B2BsNjxTq6iSKi.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/Z7RM4DfkMty/0B2BsNjxTq6iSKi.m3u8
 #EXTINF:-1 tvg-id="TF1SeriesFilms.fr@SD" tvg-name="TF1 Series Films (1080p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/4CJIDKQ.png" group-title="Movies",TF1 Series Films (1080p) [Geo-Blocked]
 https://viamotionhsi.netplus.ch/live/eds/hd1/browser-HLS8/hd1.m3u8
 #EXTINF:-1 tvg-id="TiVi5Monde.fr@SD" tvg-name="TiVi5 Monde [Geo-blocked]" tvg-logo="https://i.imgur.com/fVVKpmk.png" group-title="Undefined",TiVi5 Monde [Geo-blocked]
