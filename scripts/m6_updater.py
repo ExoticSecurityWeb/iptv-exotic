@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+enlevesa#!/usr/bin/env python3
 """
 Exotic M6 Auto-Updater v1.0
 - Lit le fichier officiel ParaTV france.m3u (mis à jour toutes les 15 min par eux)
