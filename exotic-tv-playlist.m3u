@@ -32,7 +32,7 @@ https://archive.org/download/lo-fi-chillout-beach-vibes-2-hours-of-relaxing-ocea
 #EXTINF:-1 tvg-id="CNews.fr@SD" tvg-name="CNews (1080p)" tvg-logo="https://i.imgur.com/sSNhk2g.png" group-title="News",CNews (1080p)
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cnews.m3u8
 #EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
-https://live.eu-north-1a.cf.dmcdn.net/sec2(InJYfcza4cxeasYT7uEhHgojnViL9RwWE3GwNeFXRZQGDcSem6CoaK7sliKvqIigthjDChk924FQPXj03_bkD5Iitvqd8znU69gGmP1eyLWQjdWaOhbYz04dz6JV3Szg)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
+https://live.eu-north-1a.cf.dmcdn.net/sec2(MnjfeEvgWWzUTdNwmG-MrjyK5seU-RnLmukl75S9oDCrbe_hjG5EweKn7N5CyQmbgYtPTM6tZNz_urddJf6MhsGhVT8yRYBbBkYOS_f2TOVxi6u9JN5fytZzZ-RnMVup)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
 #EXTINF:-1 tvg-id="Gulli.fr@SD" tvg-name="Gulli (720p)" tvg-logo="https://i.imgur.com/kqYssbW.png" group-title="Kids",Gulli (720p)
 http://99.27.51.147:8080/Gulli/index.m3u8
 #EXTINF:-1 tvg-name="Palmi Winter TV ❄️" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Winter TV ❄️
