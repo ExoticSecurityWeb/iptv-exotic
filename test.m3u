@@ -9,3 +9,6 @@ https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ
 https://archive.org/download/palmimeteo3_202606/202606231605%20%281%29.ia.mp4
 #EXTINF:-1 tvg-name="TV7 Bordeaux" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/3/36/Logo_TV7_Bordeaux_%282023%29.png",TV7 Bordeaux
 https://exoticsecurityweb.github.io/iptv-exotic/chaineIPTV/chainesTV/TV7Bordeaux.m3u8
+#EXTINF:-1 tvg-name="Franceinfo" tvg-logo="https://img.20mn.fr/0Gkk_u0qS22pBMK_ysg7kQ/1200x768_logo-chaine-france-info",Franceinfo
+https://exoticsecurityweb.github.io/iptv-exotic/tv/franceinfo.m3u8
+
