@@ -246,7 +246,7 @@ https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/tele
 #EXTINF:-1 tvg-id="TF1.fr@HD" tvg-name="TF1 HD (720p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 HD (720p) [Geo-Blocked]
 https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/7Wr8sHUiC11h/UVhHEVbZm9luSsr.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p) [Geo-Blocked]
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/lequipe/eurosport-1-dm.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/7Wr8sHUiC11h/WwpWr5uN2dfCUzm.m3u8
 #EXTINF:-1 tvg-id="TiVi5Monde.fr@SD" tvg-name="TiVi5 Monde [Geo-blocked]" tvg-logo="https://i.imgur.com/fVVKpmk.png" group-title="Undefined",TiVi5 Monde [Geo-blocked]
 https://ott.tv5monde.com/Content/HLS/Live/channel(tivi5)/variant.m3u8
 #EXTINF:-1 tvg-id="TraceBrazuca.fr@HD" tvg-name="Trace Brasil (1080p)" tvg-logo="https://i.imgur.com/DFBocPu.png" group-title="Music",Trace Brasil (1080p)
