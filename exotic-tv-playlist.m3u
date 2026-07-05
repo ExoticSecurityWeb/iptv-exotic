@@ -1,6 +1,6 @@
 #EXTM3U
 #EXTINF:-1 tvg-id="TF1.fr@SD" tvg-name="TF1 (720p)" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 (720p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/enlL3veOIyAi/1Y8dtNLZZPOqhPz.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/EqktNZAMMTt/JZGi4LHKboBTiUIw.m3u8
 #EXTINF:-1 tvg-id="France2.fr@SD" tvg-name="France 2 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/France_2_2018.svg/960px-France_2_2018.svg.png" group-title="General",France 2 (1080p)
 http://69.64.57.208/france2/mono.m3u8
 #EXTINF:-1 tvg-id="3france.fr@SD" tvg-name="France 3 Nouvelle Aquitaine" tvg-logo="https://i.imgur.com/ZH4225T.jpeg" group-title="Entertainment",France 3 Nouvelle Aquitaine
@@ -244,7 +244,7 @@ https://videas.agglo-lenslievin.fr/index.m3u8
 #EXTINF:-1 tvg-id="Telenantes.fr@SD" tvg-name="Telenantes (180p)" tvg-logo="https://i.imgur.com/G1SCqNI.png" group-title="Undefined",Telenantes (180p)
 https://raw.githubusercontent.com/Sibprod/streams/main/ressources/dm/py/hls/telenantes.m3u8
 #EXTINF:-1 tvg-id="TF1.fr@HD" tvg-name="TF1 HD (720p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/QxHt9NC.png" group-title="Entertainment",TF1 HD (720p) [Geo-Blocked]
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/enlL3veOIyAi/1Y8dtNLZZPOqhPz.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/EqktNZAMMTt/JZGi4LHKboBTiUIw.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p) [Geo-Blocked]" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p) [Geo-Blocked]
 https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/EqktNZAMMTt/ezkOe8suua8N2xm.m3u8
 #EXTINF:-1 tvg-id="TiVi5Monde.fr@SD" tvg-name="TiVi5 Monde [Geo-blocked]" tvg-logo="https://i.imgur.com/fVVKpmk.png" group-title="Undefined",TiVi5 Monde [Geo-blocked]
