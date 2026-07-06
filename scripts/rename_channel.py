@@ -34,6 +34,23 @@ NEW_NAME = os.environ.get("NEW_NAME", "").strip()
 NEW_URL  = os.environ.get("NEW_URL", "").strip()  # optionnel
 
 REQUEST_TIMEOUT = 20
+
+# ─── GARDE-FOU ANTI-CORRUPTION ───────────────────────────────────────────────
+# Empêche d'injecter un blob corrompu (copier-coller raté, User-Agent mélangé,
+# page HTML entière, etc.) dans le nom d'une chaîne. C'est exactement le bug
+# qui a corrompu BFM Business, France.Sport, Pluto Cuisine et 12 autres chaînes.
+MAX_NAME_LENGTH = 80
+SUSPICIOUS_MARKERS = ("Chrome/", "Safari/", "Mozilla/", "AppleWebKit/", "<html", "<!DOCTYPE")
+
+
+def _looks_corrupted(value: str) -> bool:
+    if len(value) > MAX_NAME_LENGTH:
+        return True
+    if any(marker in value for marker in SUSPICIOUS_MARKERS):
+        return True
+    return False
+
+
 SESSION = requests.Session()
 SESSION.headers.update({"User-Agent": "ExoticTV-Renamer/1.0"})
 
@@ -90,12 +107,12 @@ def rename_channel() -> bool:
     content = github_get_raw(PLAYLIST_FILE)
     sha     = github_get(PLAYLIST_FILE)["sha"]
 
-    lines     = content.splitlines()
-    new_lines = []
-    i         = 0
-    found     = False
+    lines            = content.splitlines()
+    new_lines        = []
+    i                = 0
+    found            = False
     trailing_newline = content.endswith("\n")
-    all_names = []
+    all_names        = []
 
     while i < len(lines):
         line = lines[i]
@@ -108,7 +125,7 @@ def rename_channel() -> bool:
                     new_line = re.sub(r",[^,]+$", f",{NEW_NAME}", line)
                     new_line = re.sub(r'tvg-name="[^"]*"', f'tvg-name="{NEW_NAME}"', new_line)
                     new_lines.append(new_line)
-                    log.info(f"✏️  Renommage : «{OLD_NAME}» → «{NEW_NAME}»")
+                    log.info(f"✏️ Renommage : «{OLD_NAME}» → «{NEW_NAME}»")
                     i += 1
                     while i < len(lines) and lines[i].startswith("#"):
                         new_lines.append(lines[i])
@@ -116,11 +133,11 @@ def rename_channel() -> bool:
                     if i < len(lines) and not lines[i].startswith("#"):
                         old_url = lines[i]
                         if NEW_URL:
-                            log.info(f"   ancien URL : {old_url[:90]}")
-                            log.info(f"   nouvel URL : {NEW_URL[:90]}")
+                            log.info(f"    ancien URL : {old_url[:90]}")
+                            log.info(f"    nouvel URL : {NEW_URL[:90]}")
                             new_lines.append(NEW_URL)
                         else:
-                            log.info(f"   URL conservée : {old_url[:90]}")
+                            log.info(f"    URL conservée : {old_url[:90]}")
                             new_lines.append(old_url)
                         i += 1
                     found = True
@@ -147,7 +164,7 @@ def rename_channel() -> bool:
 def main() -> None:
     log.info("─" * 55)
     log.info(f"🧟‍♀️ Exotic Channel Renamer — {_now()}")
-    log.info("    (workflow ressuscité par Elena, encore et encore)")
+    log.info("   (workflow ressuscité par Elena, encore et encore)")
     log.info("─" * 55)
 
     if not GITHUB_TOKEN:
@@ -160,6 +177,20 @@ def main() -> None:
         log.error(f"   NEW_NAME reçu : «{NEW_NAME}»")
         sys.exit(1)
 
+    # ─── GARDE-FOU ANTI-CORRUPTION ──────────────────────────────────────────
+    # Bloque tout NEW_NAME/OLD_NAME suspect (trop long ou contenant un
+    # fragment de User-Agent / HTML) AVANT toute écriture sur GitHub.
+    if _looks_corrupted(NEW_NAME):
+        log.error(f"❌ NEW_NAME suspect — {len(NEW_NAME)} caractères ou contient un fragment inattendu.")
+        log.error(f"   Aperçu : «{NEW_NAME[:80]}…»")
+        log.error("   Abandon pour éviter de corrompre la playlist. Vérifie ton copier-coller.")
+        sys.exit(1)
+    if _looks_corrupted(OLD_NAME):
+        log.error(f"❌ OLD_NAME suspect — {len(OLD_NAME)} caractères ou contient un fragment inattendu.")
+        log.error(f"   Aperçu : «{OLD_NAME[:80]}…»")
+        log.error("   Abandon pour éviter de corrompre la playlist. Vérifie ton copier-coller.")
+        sys.exit(1)
+
     log.info(f"🎯 Ancien nom : «{OLD_NAME}»")
     log.info(f"🎯 Nouveau nom : «{NEW_NAME}»")
     if NEW_URL:
@@ -168,7 +199,6 @@ def main() -> None:
         log.info("🎯 URL : inchangée")
 
     success = rename_channel()
-
     if success:
         log.info("🎉 Mission accomplie ! Ce workflow attend sa prochaine résurrection… 🧟‍♀️")
     else:
