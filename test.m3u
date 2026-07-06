@@ -1,14 +1,18 @@
 #EXTM3U
 #EXTINF:-1 tvg-name="One Piece" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/3/34/One_Piece_(ja)_Logo.svg" group-title="PlutoTV",One Piece
 https://stitcher-ipv4.pluto.tv/v2/stitch/embed/hls/channel/6380c94947c72b0007ee9a13/master.m3u8?deviceType=samsung-tvplus&deviceMake=samsung&deviceModel=samsung&deviceVersion=unknown&appVersion=unknown&deviceLat=0&deviceLon=0&deviceDNT=%7BTARGETOPT%7D&deviceId=%7BPSID%7D&advertisingId=%7BPSID%7D&us_privacy=1YNY&samsung_app_domain=%7BAPP_DOMAIN%7D&samsung_app_name=%7BAPP_NAME%7D&profileLimit=&profileFloor=&embedPartner=samsung-tvplus&masterJWTPassthrough=1&authToken=eyJhbGciOiJIUzI1NiIsImtpZCI6Ijc1ZDM1NWZkLTFiZDEtNGQ5ZS1iNzJiLWFiYWJlOThhMjBiYiIsInR5cCI6IkpXVCJ9.eyJwYXJ0bmVyIjoic2Ftc3VuZ3R2cGx1cyIsImZlYXR1cmVzIjp7Im11bHRpUG9kQWRzIjp7ImNvaG9ydCI6IiIsImVuYWJsZWQiOnRydWV9LCJzdGl0Y2hlckRhc2hOZyI6eyJmbGF0dGVuQmFzZVVybCI6dHJ1ZX0sInN0aXRjaGVySGxzTmciOnsiZGVtdXhlZEF1ZGlvIjoiaml0In0sInN0aXRjaGVyUGFydG5lclNob3dTbGF0ZSI6eyJlbmFibGVkIjp0cnVlfX0sImlzcyI6InNlcnZpY2UtcGFydG5lci1hdXRoLnBsdXRvLnR2Iiwic3ViIjoicHJpOnYxOnBsdXRvOmRldmljZXM6YzJGdGMzVnVaM1IyY0d4MWN3PT0iLCJhdWQiOiIqLnBsdXRvLnR2IiwiZXhwIjoxNzgxNjc0MDQ4LCJpYXQiOjE3ODE1ODc2NDgsImp0aSI6IjZjMjBkNDdmLWQ2ZjAtNDE3Yy1iN2U0LWU5MjIyMmVkMDBhMSJ9.kadAIQ6Cby9KrJ9g-7lgQ7kPGOw8aoYIpEmV7W6arKc
+#EXTINF:-1 tvg-name="France 2" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/France_2_2018.svg/1920px-France_2_2018.svg.png",France 2
+https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france2.m3u8
 #EXTINF:-1 tvg-name="Cstar" tvg-logo="https://thumb.canalplus.pro/bran/unsafe/272x153/filters:quality(80)/image/6706963ed2954/uploads/media/CHN43FB_cstar_20171124_CSTAR-1.png",Cstar
 http://86.202.245.66:9981/stream/channelid/1740296275?profile=pass
-#EXTINF:-1 tvg-name="TFX" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/83/TFX_logo_2018.svg/1920px-TFX_logo_2018.svg.png?_=20211222234220",TFX
-https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaXAiOiI3OS4xMjcuMTY5LjciLCJjbWNkIjoiIiwiZXhwIjoxNzgxODcxNTQ3LCJnaWQiOiJlNzIwMzhjMzU5NDg0MDc1YjgzOGUwNjY5NWI3ZDQ5NiIsImlhdCI6MTc4MTg1NzE0NywiaXNzIjoiZGVsaXZlcnkiLCJtYXhiIjowLCJzdGVtIjoiL3Byb2QvVEZYL2NtYWYvb3V0Iiwic3ViIjoiZTcyMDM4YzM1OTQ4NDA3NWI4MzhlMDY2OTViN2Q0OTYifQ.IOWUZkus1GDdUmI6YZd1H_hzLQfQReY1AHSEHBhR8zI/prod/TFX/cmaf/out/TFX-mp4a_140800_fra=20000.m3u8
 #EXTINF:-1 tvg-name="Palmi Meteo" tvg-logo="https://i.imgur.com/RPE2EDW_d.png?maxwidth=520&shape=thumb&fidelity=high",Palmi Meteo
 https://archive.org/download/palmimeteo3_202606/202606231605%20%281%29.ia.mp4
+#EXTINF:-1 tvg-name="Franceinfo" tvg-logo="https://img.20mn.fr/0Gkk_u0qS22pBMK_ysg7kQ/1200x768_logo-chaine-france-info",Franceinfo
+https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/franceinfo.m3u8
+#EXTINF:-1 tvg-name="TFX" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/83/TFX_logo_2018.svg/1920px-TFX_logo_2018.svg.png?_=20211222234220",TFX
+https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaXAiOiI3OS4xMjcuMTY5LjciLCJjbWNkIjoiIiwiZXhwIjoxNzgxODcxNTQ3LCJnaWQiOiJlNzIwMzhjMzU5NDg0MDc1YjgzOGUwNjY5NWI3ZDQ5NiIsImlhdCI6MTc4MTg1NzE0NywiaXNzIjoiZGVsaXZlcnkiLCJtYXhiIjowLCJzdGVtIjoiL3Byb2QvVEZYL2NtYWYvb3V0Iiwic3ViIjoiZTcyMDM4YzM1OTQ4NDA3NWI4MzhlMDY2OTViN2Q0OTYifQ.IOWUZkus1GDdUmI6YZd1H_hzLQfQReY1AHSEHBhR8zI/prod/TFX/cmaf/out/TFX-mp4a_140800_fra=20000.m3u8
 #EXTINF:-1 tvg-name="TV7 Bordeaux" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/3/36/Logo_TV7_Bordeaux_%282023%29.png",TV7 Bordeaux
 https://exoticsecurityweb.github.io/iptv-exotic/chaineIPTV/chainesTV/TV7Bordeaux.m3u8
-#EXTINF:-1 tvg-name="Franceinfo" tvg-logo="https://img.20mn.fr/0Gkk_u0qS22pBMK_ysg7kQ/1200x768_logo-chaine-france-info",Franceinfo
-https://exoticsecurityweb.github.io/iptv-exotic/tv/franceinfo.m3u8
+#EXTINF:-1 tvg-name="LCI" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/3/38/LCI_-_Logo_%28Ao%C3%BBt_2017%29.svg/1280px-LCI_-_Logo_%28Ao%C3%BBt_2017%29.svg.png?_=20240422160041",LCI
+https://raw.githubusercontent.com/pinkisso/mored/refs/heads/main/res/26-1/lci1.m3u8
 
