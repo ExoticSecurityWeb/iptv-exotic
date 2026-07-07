@@ -182,22 +182,36 @@ def find_tfx_url() -> str:
     candidates = []
     for item in r.json():
         if item["type"] == "file" and item["name"].lower().endswith(".m3u8"):
-            candidates.append(item)
+            candidates.append((item, PARATV_STREAMS_DIR))
         elif item["type"] == "dir":
             try:
                 r2 = fetch(item["url"], headers=h)
                 r2.raise_for_status()
                 for f in r2.json():
                     if f["type"] == "file" and f["name"].lower().endswith(".m3u8"):
-                        candidates.append(f)
+                        candidates.append((f, item["name"]))
             except Exception as exc:
                 log.warning(f"Impossible de lister {item['name']}/ : {exc}")
 
     log.info(f"🔎 {len(candidates)} fichier(s) .m3u8 à analyser")
 
-    for c in candidates:
+    # ─── EXCLUSION DES DOSSIERS/CHAÎNES CONNUS ────────────────────────────
+    # Les noms de fichiers ParaTV sont aléatoires (tokens type hash), donc on
+    # ne peut PAS filtrer par nom de fichier. Par contre certains dossiers
+    # sont connus pour appartenir à une autre chaîne (ex: lequipe/ = Eurosport)
+    # — on les exclut d'office pour éviter qu'un match trop large sur le
+    # contenu ("TFX"/"NT1" en sous-chaîne) ne pioche dedans par erreur.
+    EXCLUDED_FOLDERS = {"lequipe", "l'equipe", "eurosport"}
+
+    filtered_candidates = [
+        (f, folder) for (f, folder) in candidates
+        if folder.lower() not in EXCLUDED_FOLDERS
+    ]
+
+    for c, folder in filtered_candidates:
         url = _extract_tfx_from_file(c, h)
         if url:
+            log.info(f"✅ Source retenue : {folder}/{c['name']}")
             return url
 
     raise RuntimeError("Aucun stream TFX trouvé dans ParaTV")
