@@ -1,4 +1,4 @@
-enlevesa#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Exotic M6 Auto-Updater v1.0
 - Lit le fichier officiel ParaTV france.m3u (mis à jour toutes les 15 min par eux)
@@ -28,7 +28,7 @@ log = logging.getLogger("m6-updater")
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 PARATV_FRANCE_M3U   = "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/playlists/paratv/group/france/france.m3u"
-PLAYLIST_FILE       = "exotic-tv-playlist.m3u"
+PLAYLIST_FILE       = "test.m3u"
 CACHE_FILE          = "m6_cache.json"
 REPO                = "ExoticSecurityWeb/iptv-exotic"
 GITHUB_TOKEN        = os.environ.get("GITHUB_TOKEN", "")
@@ -144,7 +144,11 @@ def find_m6_url() -> str:
     éventuelles lignes #EXTVLCOPT) est l'URL M6 à utiliser.
     """
     log.info(f"🔍 Fetch du fichier ParaTV france.m3u…")
-    r = fetch(PARATV_FRANCE_M3U)
+    # Anti-cache : raw.githubusercontent.com (CDN Fastly) peut renvoyer une
+    # version périmée pendant plusieurs minutes après un commit sur ParaTV.
+    # On ajoute un paramètre unique à chaque appel pour forcer un fetch frais.
+    cache_bust_url = f"{PARATV_FRANCE_M3U}?_={int(time.time())}"
+    r = fetch(cache_bust_url)
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code} sur france.m3u")
 
@@ -251,8 +255,8 @@ def notify_discord(old_url: str, new_url: str, count: int, total: int) -> None:
         return u[:n] + "…" if len(u) > n else u
 
     payload = {"embeds": [{
-        "title": "📺 M6 — URL mise à jour automatiquement",
-        "description": f"**{count}** occurrence(s) dans `{PLAYLIST_FILE}`",
+        "title": "🧪 [TEST] M6 — URL mise à jour automatiquement",
+        "description": f"**{count}** occurrence(s) dans `{PLAYLIST_FILE}` (playlist test)",
         "color": 0xe2001a,
         "fields": [
             {"name": "✅ Nouvelle URL", "value": f"```{trunc(new_url)}```", "inline": False},
