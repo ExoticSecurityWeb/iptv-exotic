@@ -50,27 +50,41 @@ def check_stream(url):
         return False, str(e)
 
 
+def clean_error(detail):
+    """Simplifie les erreurs Python brutes en message lisible."""
+    if "ConnectTimeoutError" in detail or "timed out" in detail:
+        return "Timeout"
+    if "NameResolutionError" in detail or "Failed to resolve" in detail:
+        return "DNS introuvable"
+    if "ConnectionRefusedError" in detail or "Connection refused" in detail:
+        return "Connexion refusée"
+    if "HTTP" in detail:
+        return detail
+    return "Erreur de connexion"
+
+
 def notify_discord(dead_streams):
     if not DISCORD_WEBHOOK:
         print("⚠️  DISCORD_RADIO_WEBHOOK non défini, notification skip.")
         return
 
-    lines = [f"• **{name}** — `{detail}`" for name, detail in dead_streams]
-    description = "\n".join(lines)
-
-    payload = {
-        "username": "Exotic Radio Checker",
-        "embeds": [
-            {
-                "title": "🔴 Flux radio down détecté",
-                "description": description,
-                "color": 0xE74C3C,
-            }
-        ],
-    }
-
-    resp = requests.post(DISCORD_WEBHOOK, json=payload, timeout=TIMEOUT)
-    resp.raise_for_status()
+    for name, url, detail in dead_streams:
+        payload = {
+            "username": "Exotic Radio Checker",
+            "embeds": [
+                {
+                    "title": f"💀 {name} [Down]",
+                    "color": 0xE74C3C,
+                    "fields": [
+                        {"name": "🔴 Erreur", "value": clean_error(detail), "inline": False},
+                        {"name": "🔗 URL morte", "value": f"```{url}```", "inline": False},
+                    ],
+                    "footer": {"text": "Exotic Radio Checker • Pink Paradise 🌴"},
+                }
+            ],
+        }
+        resp = requests.post(DISCORD_WEBHOOK, json=payload, timeout=TIMEOUT)
+        resp.raise_for_status()
 
 
 def main():
@@ -87,7 +101,7 @@ def main():
         status = "✅" if ok else "❌"
         print(f"{status} {name} — {detail}")
         if not ok:
-            dead.append((name, detail))
+            dead.append((name, url, detail))
 
     if dead:
         print(f"\n⚠️  {len(dead)} flux morts détectés, notification Discord...")
