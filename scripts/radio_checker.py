@@ -12,7 +12,7 @@ import re
 import sys
 import requests
 
-PLAYLIST_PATH = "exotic-radio-playlist.m3u"
+PLAYLIST_PATH = "tv/exotic-radio-playlist.m3u"
 DISCORD_WEBHOOK = os.environ.get("DISCORD_RADIO_WEBHOOK")
 TIMEOUT = 10  # secondes
 
