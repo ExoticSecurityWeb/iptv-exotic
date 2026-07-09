@@ -32,7 +32,7 @@ https://archive.org/download/PalmiWinterTV/Chillout%20Northern%20Lights%20%F0%9F
 #EXTINF:-1 tvg-id="CNews.fr@SD" tvg-name="CNews (1080p)" tvg-logo="https://i.imgur.com/sSNhk2g.png" group-title="News",CNews (1080p)
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cnews.m3u8
 #EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
-https://live.eu-north-1a.cf.dmcdn.net/sec2(JeBV5Nr9xR0P3WscyNylOONkorQt09f8M3nS_zT11he7k8_j6UzX-vrwZMRr4n_-ijTabv_8a6ump96MnFbaby-dXdhe30FINy6lMQXmNI2vBi4qrsHBiLBejObiz7tZ)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
+https://live.eu-north-1a.cf.dmcdn.net/sec2(7dkQI1T0j9XevqzGdMNmLPkZIZEAO917iWfv4kMCyFm-AQGs9XXnqMrvZfYdwCR9tqD5NecDVMcZVXYx5pV8JYuCPxmPqqCRI7-peFCT4JndbbEN-l60eFas3WG1oij0)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
 #EXTINF:-1 tvg-id="Gulli.fr@SD" tvg-name="Gulli (720p)" tvg-logo="https://i.imgur.com/kqYssbW.png" group-title="Kids",Gulli (720p)
 https://origin-drp-m6web.live.6cloud.fr/out/v1/6play/6play-gulli/cmaf_q2hyb21h/hls-short-sd.m3u8
 #EXTINF:-1 tvg-name="Palmi Summer TV ☀️" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Summer TV ☀️
