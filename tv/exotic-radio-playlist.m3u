@@ -1,0 +1,22 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-id="FranceInter" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/2/22/France_Inter_2021.svg/512px-France_Inter_2021.svg.png" group-title="ExoticRadio",France Inter
+http://direct.franceinter.fr/live/franceinter-midfi.mp3
+
+#EXTINF:-1 tvg-id="FranceInfo" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/c/c7/Franceinfo_2021.svg/512px-Franceinfo_2021.svg.png" group-title="ExoticRadio",France Info
+http://direct.franceinfo.fr/live/franceinfo-midfi.mp3
+
+#EXTINF:-1 tvg-id="NRJ" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/2/24/NRJ_logo_2016.svg/512px-NRJ_logo_2016.svg.png" group-title="ExoticRadio",NRJ
+http://cdn.nrjaudio.fm/audio1/fr/30001/mp3_128.mp3
+
+#EXTINF:-1 tvg-id="FunRadio" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/9/9f/Fun_Radio_logo_2015.svg/512px-Fun_Radio_logo_2015.svg.png" group-title="ExoticRadio",Fun Radio
+http://streaming.radio.funradio.fr/fun-1-44-128
+
+#EXTINF:-1 tvg-id="RTL" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/2/20/RTL_logo_2015.svg/512px-RTL_logo_2015.svg.png" group-title="ExoticRadio",RTL
+http://streaming.radio.rtl.fr/rtl-1-44-128
+
+#EXTINF:-1 tvg-id="Skyrock" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/9/94/Skyrock_logo_2018.svg/512px-Skyrock_logo_2018.svg.png" group-title="ExoticRadio",Skyrock
+http://icecast.skyrock.net/s/natio_mp3_128k
+
+#EXTINF:-1 tvg-id="Virgin" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/8b/Virgin_Radio_2015.svg/512px-Virgin_Radio_2015.svg.png" group-title="ExoticRadio",Virgin Radio
+http://ais-live.cloud-services.paris:8000/virgin-radio-192.mp3
