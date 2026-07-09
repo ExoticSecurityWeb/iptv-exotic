@@ -1,0 +1,26 @@
+name: Radio Stream Checker
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check-radio-streams:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run radio checker
+        env:
+          DISCORD_RADIO_WEBHOOK: ${{ secrets.DISCORD_RADIO_WEBHOOK }}
+        run: python scripts/radio_checker.py
