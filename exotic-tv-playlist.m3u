@@ -4,7 +4,7 @@ https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/ZnGV0oPFOKN/rd
 #EXTINF:-1 tvg-id="France2.fr@SD" tvg-name="France 2 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/France_2_2018.svg/960px-France_2_2018.svg.png" group-title="General",France 2 (1080p)
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france2.m3u8
 #EXTINF:-1 tvg-id="3france.fr@SD" tvg-name="France 3 Nouvelle Aquitaine" tvg-logo="https://i.imgur.com/ZH4225T.jpeg" group-title="Entertainment",France 3 Nouvelle Aquitaine
-https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france3.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/francetv/france-3-aquitaine.m3u8
 #EXTINF:-1 tvg-id="20MinutesTV.fr@SD" tvg-name="France 4 (1080p)" tvg-logo="https://i.imgur.com/nEBa3hO.jpeg" group-title="General",France 4 (1080p)
 http://176.65.146.100:8047/play/a074/index.m3u8
 #EXTINF:-1 tvg-id="France5.fr@SD" tvg-name="France 5 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/France_5_2018.svg/960px-France_5_2018.svg.png" group-title="General",France 5 (1080p)
