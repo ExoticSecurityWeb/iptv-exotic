@@ -393,21 +393,26 @@ applyLayout();
 window.addEventListener('DOMContentLoaded', loadPlaylist);
 
 async function fetchPlaylistText(relative, absolute){
+  const withTimeout = (url, ms=8000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), ms);
+    return fetch(url, {cache:'no-cache', signal:ctrl.signal}).finally(()=>clearTimeout(t));
+  };
   let text = null;
   try{
-    const r = await fetch(relative, {cache:'no-cache'});
+    const r = await withTimeout(relative);
     if(r.ok) text = await r.text();
   }catch{}
   if(!text){
     try{
-      const r = await fetch(absolute, {cache:'no-cache'});
+      const r = await withTimeout(absolute);
       if(r.ok) text = await r.text();
     }catch{}
   }
   if(!text){
     for(const pFn of PROXIES){
       try{
-        const r = await fetch(pFn(absolute), {cache:'no-cache'});
+        const r = await withTimeout(pFn(absolute));
         if(r.ok){ text = await r.text(); break; }
       }catch{}
     }
@@ -429,31 +434,30 @@ async function loadPlaylist(){
 
   channels = parseM3U(tvText);
   const tvCount = channels.length;
-
-  // Playlist radio : chargement en best-effort, ne bloque pas l'appli si absente
-  const radioText = await fetchPlaylistText(RADIO_RELATIVE, RADIO_ABS);
-  let radioCount = 0;
-  if(radioText){
-    const radioChannels = parseM3U(radioText).map(ch => ({...ch, isRadio:true}));
-    radioCount = radioChannels.length;
-    channels = channels.concat(radioChannels);
-  }
-
   filtered = [...channels];
-
-  const countLabel = radioCount
-    ? `${tvCount} chaînes • ${radioCount} radios`
-    : `${tvCount} chaînes`;
 
   g('loadSpin').style.display = 'none';
   const b = g('badge');
-  b.textContent = countLabel;
+  b.textContent = tvCount + ' chaînes';
   b.style.display = '';
   g('splashSpin').style.display = 'none';
-  g('splashSub').textContent = countLabel;
+  g('splashSub').textContent = tvCount + ' chaînes';
   g('splashReady').style.display = 'block';
 
   renderList();
+
+  // Playlist radio : chargée en arrière-plan, n'empêche jamais la TV de s'afficher
+  fetchPlaylistText(RADIO_RELATIVE, RADIO_ABS).then(radioText => {
+    if(!radioText) return;
+    const radioChannels = parseM3U(radioText).map(ch => ({...ch, isRadio:true}));
+    if(!radioChannels.length) return;
+    channels = channels.concat(radioChannels);
+    filtered = [...channels];
+    const countLabel = `${tvCount} chaînes • ${radioChannels.length} radios`;
+    b.textContent = countLabel;
+    g('splashSub').textContent = countLabel;
+    renderList();
+  }).catch(()=>{});
 }
 
 // ── PARSE M3U ─────────────────────────────────────────────────
@@ -546,11 +550,4 @@ function _startPlay(ch, srcUrl){
   showBuf(true);
 
   if(hlsInst){hlsInst.destroy();hlsInst=null;}
-  vid.pause(); vid.removeAttribute('src'); vid.load();
-
-  // Flux audio direct (mp3/aac, pas de manifest HLS) → lecture native, pas de HLS.js
-  // Les flux radio en .m3u8 (Amagi, etc.) passent par HLS.js normalement, comme la TV
-  const isRadioStream = /\.(mp3|aac)(\?|$)/i.test(srcUrl);
-  if(isRadioStream){
-    vid.src = srcUrl;
-    v
+  vid.pause(); vid.removeAttribute('src'
