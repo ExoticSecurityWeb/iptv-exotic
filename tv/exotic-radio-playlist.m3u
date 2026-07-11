@@ -10,13 +10,25 @@ http://direct.franceinfo.fr/live/franceinfo-midfi.mp3
 http://cdn.nrjaudio.fm/audio1/fr/30001/mp3_128.mp3
 
 #EXTINF:-1 tvg-id="FunRadio" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/9/9f/Fun_Radio_logo_2015.svg/512px-Fun_Radio_logo_2015.svg.png" group-title="ExoticRadio",Fun Radio
-http://streaming.radio.funradio.fr/fun-1-44-128
+https://icecast.rtl.fr/fun-1-44-128
+
+#EXTINF:-1 tvg-id="FunRadioDM" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/9/9f/Fun_Radio_logo_2015.svg/512px-Fun_Radio_logo_2015.svg.png" group-title="ExoticRadio",Fun Radio (Dailymotion)
+https://tvradiozap.eu/tools/cof-m3u8.php/dm/xxtuy6.m3u8
 
 #EXTINF:-1 tvg-id="RTL" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/2/20/RTL_logo_2015.svg/512px-RTL_logo_2015.svg.png" group-title="ExoticRadio",RTL
-http://streaming.radio.rtl.fr/rtl-1-44-128
+http://streaming.radio.rtl.fr/rtl-1-44-96
 
 #EXTINF:-1 tvg-id="Skyrock" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/9/94/Skyrock_logo_2018.svg/512px-Skyrock_logo_2018.svg.png" group-title="ExoticRadio",Skyrock
-http://icecast.skyrock.net/s/natio_mp3_128k
+https://amg01796-amg01796c37-amgplt0011.playout.now3.amagi.tv/ts-eu-w1-n2/playlist/amg01796-amg01796c37-amgplt0011/playlist.m3u8
 
 #EXTINF:-1 tvg-id="Virgin" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/8b/Virgin_Radio_2015.svg/512px-Virgin_Radio_2015.svg.png" group-title="ExoticRadio",Virgin Radio
-http://ais-live.cloud-services.paris:8000/virgin-radio-192.mp3
+https://virginradio.ice.infomaniak.ch/virgin-radio.mp3
+
+#EXTINF:-1 tvg-id="VevoPop" tvg-logo="" group-title="ExoticRadio",Vevo Pop
+https://amg00056-amg00056c9-rakuten-fr-3243.playouts.now.amagi.tv/playlist/amg00056-vevotvfast-vevopopfr-rakutenfr/playlist.m3u8
+
+#EXTINF:-1 tvg-id="VevoHipHop" tvg-logo="" group-title="ExoticRadio",Vevo Hip Hop RnB
+https://amg00056-amg00056c14-rakuten-fr-3244.playouts.now.amagi.tv/playlist/amg00056-vevotvfast-vevohiphopandrbfr-rakutenfr/playlist.m3u8?ads_amagi_channel=916
+
+#EXTINF:-1 tvg-id="Vevo9000" tvg-logo="" group-title="ExoticRadio",Vevo 90 & 00's
+https://d1cj21il6keqa2.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-1jatv2dap12i7/playlist.m3u8
