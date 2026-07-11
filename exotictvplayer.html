@@ -347,6 +347,9 @@ input[type=range]::-webkit-slider-thumb{
 const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
 // Absolute URL as fallback (works when opening locally or from different origin)
 const PLAYLIST_ABS = 'https://exoticsecurityweb.github.io/iptv-exotic/exotic-tv-playlist.m3u';
+// Radio playlist (même logique, chemin dans /tv)
+const RADIO_RELATIVE = 'tv/exotic-radio-playlist.m3u';
+const RADIO_ABS = 'https://exoticsecurityweb.github.io/iptv-exotic/tv/exotic-radio-playlist.m3u';
 const PROXIES = [
   u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
   u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
@@ -389,34 +392,33 @@ applyLayout();
 // ── BOOT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', loadPlaylist);
 
-async function loadPlaylist(){
+async function fetchPlaylistText(relative, absolute){
   let text = null;
-
-  // 1. Same-origin relative path (when served from same GitHub Pages repo)
   try{
-    const r = await fetch(PLAYLIST_RELATIVE, {cache:'no-cache'});
+    const r = await fetch(relative, {cache:'no-cache'});
     if(r.ok) text = await r.text();
   }catch{}
-
-  // 2. Absolute URL (no CORS issue when same origin)
   if(!text){
     try{
-      const r = await fetch(PLAYLIST_ABS, {cache:'no-cache'});
+      const r = await fetch(absolute, {cache:'no-cache'});
       if(r.ok) text = await r.text();
     }catch{}
   }
-
-  // 3. Proxies
   if(!text){
     for(const pFn of PROXIES){
       try{
-        const r = await fetch(pFn(PLAYLIST_ABS), {cache:'no-cache'});
+        const r = await fetch(pFn(absolute), {cache:'no-cache'});
         if(r.ok){ text = await r.text(); break; }
       }catch{}
     }
   }
+  return text;
+}
 
-  if(!text){
+async function loadPlaylist(){
+  const tvText = await fetchPlaylistText(PLAYLIST_RELATIVE, PLAYLIST_ABS);
+
+  if(!tvText){
     g('splashSub').textContent = '❌ Impossible de charger la playlist';
     g('splashSpin').style.display = 'none';
     g('loadSpin').style.display = 'none';
@@ -425,7 +427,15 @@ async function loadPlaylist(){
     return;
   }
 
-  channels = parseM3U(text);
+  channels = parseM3U(tvText);
+
+  // Playlist radio : chargement en best-effort, ne bloque pas l'appli si absente
+  const radioText = await fetchPlaylistText(RADIO_RELATIVE, RADIO_ABS);
+  if(radioText){
+    const radioChannels = parseM3U(radioText).map(ch => ({...ch, isRadio:true}));
+    channels = channels.concat(radioChannels);
+  }
+
   filtered = [...channels];
 
   g('loadSpin').style.display = 'none';
@@ -531,162 +541,13 @@ function _startPlay(ch, srcUrl){
   if(hlsInst){hlsInst.destroy();hlsInst=null;}
   vid.pause(); vid.removeAttribute('src'); vid.load();
 
-  if(Hls.isSupported()){
-    hlsInst=new Hls({
-      enableWorker:true, lowLatencyMode:true,
-      maxBufferLength:30, maxMaxBufferLength:60,
-      fragLoadingTimeOut:20000, manifestLoadingTimeOut:20000,
-    });
-    hlsInst.loadSource(srcUrl);
-    hlsInst.attachMedia(vid);
-    hlsInst.on(Hls.Events.MANIFEST_PARSED,()=>{showBuf(false);vid.play().catch(()=>{});});
-    hlsInst.on(Hls.Events.ERROR,(_,d)=>{
-      if(!d.fatal) return;
-
-      if(d.type===Hls.ErrorTypes.NETWORK_ERROR){
-        if(!usingProxy){
-          // 1ère stratégie : retenter en direct quelques fois
-          if(retryCount < MAX_RETRY){
-            retryCount++;
-            hlsInst.startLoad();
-            return;
-          }
-          // Épuisé en direct → bascule sur proxy CORS
-          usingProxy=true;
-          retryCount=0;
-          hlsInst.destroy(); hlsInst=null;
-          _startPlay(ch, proxify(ch.url));
-          return;
-        } else {
-          // Déjà en proxy et ça échoue encore → on retente le proxy une fois
-          if(retryCount < MAX_RETRY){
-            retryCount++;
-            hlsInst.startLoad();
-            return;
-          }
-        }
-      }
-
-      // Erreur fatale non-réseau, ou tout épuisé
-      hlsInst.destroy(); hlsInst=null;
-      showBuf(false);
-      g('errBadge').style.display='block';
-    });
-  } else if(vid.canPlayType('application/vnd.apple.mpegurl')){
-    vid.src=srcUrl;
-    vid.addEventListener('canplay',()=>showBuf(false),{once:true});
+  // Flux audio direct (mp3/aac, pas de manifest HLS) → lecture native, pas de HLS.js
+  // Les flux radio en .m3u8 (Amagi, etc.) passent par HLS.js normalement, comme la TV
+  const isRadioStream = /\.(mp3|aac)(\?|$)/i.test(srcUrl);
+  if(isRadioStream){
+    vid.src = srcUrl;
+    vid.addEventListener('canplay', () => showBuf(false), {once:true});
     vid.play().catch(()=>{});
-  } else {
-    vid.src=srcUrl;
-    vid.addEventListener('canplay',()=>showBuf(false),{once:true});
-    vid.play().catch(()=>{});
-  }
-  vid.onerror=()=>{
-    if(!usingProxy){
-      usingProxy=true;
-      _startPlay(ch, proxify(ch.url));
-    } else {
-      showBuf(false);
-      g('errBadge').style.display='block';
-    }
-  };
-
-  g('nowPlay').innerHTML=`<b>${e(ch.name)}</b>`;
-  showOverlay(ch);
-  renderList();
-  setTimeout(()=>document.querySelector('.ch.active')?.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
-  if(castSess) castCh(ch);
-
-  // On mobile: scroll to top so video is visible
-  if(window.innerWidth<700) window.scrollTo({top:0,behavior:'smooth'});
-}
-
-function showBuf(v){g('buf').style.display=v?'block':'none'}
-
-// ── OVERLAY ───────────────────────────────────────────────────
-function showOverlay(ch){
-  g('ovNum').textContent='#'+ch.num;
-  g('ovNm').textContent=ch.name;
-  const img=g('ovImg');
-  if(ch.logo){img.src=ch.logo;img.style.display='block';}
-  else img.style.display='none';
-  const ov=g('overlay');
-  ov.classList.add('show');
-  clearTimeout(ovTmr);
-  ovTmr=setTimeout(()=>ov.classList.remove('show'),3500);
-}
-
-// ── NAV ───────────────────────────────────────────────────────
-function prevCh(){if(channels.length)play((curIdx-1+channels.length)%channels.length)}
-function nextCh(){if(channels.length)play((curIdx+1)%channels.length)}
-
-// ── VOLUME ────────────────────────────────────────────────────
-function setVol(v){
-  const vid=g('vid'); vid.volume=parseFloat(v);
-  g('muteBtn').textContent=parseFloat(v)===0?'🔇':parseFloat(v)<0.5?'🔉':'🔊';
-}
-function toggleMute(){
-  const vid=g('vid'); vid.muted=!vid.muted;
-  g('volSlider').value=vid.muted?0:vid.volume;
-  g('muteBtn').textContent=vid.muted?'🔇':'🔊';
-}
-
-// ── FULLSCREEN ────────────────────────────────────────────────
-function toggleFs(){
-  const w=g('vidArea');
-  if(document.fullscreenElement) document.exitFullscreen();
-  else if(w.requestFullscreen) w.requestFullscreen();
-  else if(w.webkitRequestFullscreen) w.webkitRequestFullscreen();
-}
-
-// ── CAST ──────────────────────────────────────────────────────
-window['__onGCastApiAvailable']=ok=>{if(ok)initCast()};
-function initCast(){
-  if(!window.cast)return;
-  castCtx=cast.framework.CastContext.getInstance();
-  castCtx.setOptions({
-    receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-    autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
-  });
-  castCtx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED,()=>{
-    castSess=castCtx.getCurrentSession();
-    const btn=g('castBtn'), st=g('castSt');
-    if(castSess){btn.classList.add('on');btn.textContent='📡 On';st.classList.add('on');if(curIdx>=0)castCh(channels[curIdx]);}
-    else{btn.classList.remove('on');btn.textContent='Cast';st.classList.remove('on');}
-  });
-}
-function toggleCast(){
-  if(typeof cast==='undefined'){showToast('Cast : utilise Chrome');return;}
-  castSess?castSess.endSession(true):castCtx.requestSession().catch(()=>{});
-}
-function castCh(ch){
-  if(!castSess||!ch)return;
-  const mi=new chrome.cast.media.MediaInfo(ch.url,'application/x-mpegURL');
-  mi.metadata=new chrome.cast.media.GenericMediaMetadata();
-  mi.metadata.title=ch.name;
-  if(ch.logo)mi.metadata.images=[{url:ch.logo}];
-  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch(()=>showToast('Erreur Cast'));
-}
-
-// ── TOAST ─────────────────────────────────────────────────────
-let tTmr;
-function showToast(msg){
-  const t=g('toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(tTmr);tTmr=setTimeout(()=>t.classList.remove('show'),3500);
-}
-
-// ── KEYBOARD (PC) ─────────────────────────────────────────────
-document.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT')return;
-  if(e.key==='ArrowUp'){e.preventDefault();prevCh();}
-  if(e.key==='ArrowDown'){e.preventDefault();nextCh();}
-  if(e.key==='f'||e.key==='F')toggleFs();
-  if(e.key==='m'||e.key==='M')toggleMute();
-});
-
-// ── UTIL ──────────────────────────────────────────────────────
-function g(id){return document.getElementById(id)}
-</script>
-<script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
-</body>
-</html>
+    vid.onerror = () => {
+      if(!usingProxy){
+        usingProxy = true
