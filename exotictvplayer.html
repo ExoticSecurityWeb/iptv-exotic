@@ -428,22 +428,29 @@ async function loadPlaylist(){
   }
 
   channels = parseM3U(tvText);
+  const tvCount = channels.length;
 
   // Playlist radio : chargement en best-effort, ne bloque pas l'appli si absente
   const radioText = await fetchPlaylistText(RADIO_RELATIVE, RADIO_ABS);
+  let radioCount = 0;
   if(radioText){
     const radioChannels = parseM3U(radioText).map(ch => ({...ch, isRadio:true}));
+    radioCount = radioChannels.length;
     channels = channels.concat(radioChannels);
   }
 
   filtered = [...channels];
 
+  const countLabel = radioCount
+    ? `${tvCount} chaînes • ${radioCount} radios`
+    : `${tvCount} chaînes`;
+
   g('loadSpin').style.display = 'none';
   const b = g('badge');
-  b.textContent = channels.length + ' chaînes';
+  b.textContent = countLabel;
   b.style.display = '';
   g('splashSpin').style.display = 'none';
-  g('splashSub').textContent = channels.length + ' chaînes';
+  g('splashSub').textContent = countLabel;
   g('splashReady').style.display = 'block';
 
   renderList();
@@ -546,8 +553,4 @@ function _startPlay(ch, srcUrl){
   const isRadioStream = /\.(mp3|aac)(\?|$)/i.test(srcUrl);
   if(isRadioStream){
     vid.src = srcUrl;
-    vid.addEventListener('canplay', () => showBuf(false), {once:true});
-    vid.play().catch(()=>{});
-    vid.onerror = () => {
-      if(!usingProxy){
-        usingProxy = true
+    v
