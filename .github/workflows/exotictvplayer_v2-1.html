@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ExoticTV Player</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.12/hls.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+:root{
+  --bg:#08080f;
+  --s1:#0e0e1c;
+  --s2:#15152a;
+  --s3:#1c1c38;
+  --brd:#252545;
+  --acc:#c026d3;
+  --acc2:#7c3aed;
+  --live:#ef4444;
+  --txt:#ededf5;
+  --txt2:#6868a0;
+  --r:12px;
+}
+
+html,body{height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt)}
+
+/* ═══════════════════════════════════════
+   MOBILE LAYOUT (default)
+═══════════════════════════════════════ */
+
+/* Header */
+.hdr{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:56px;display:flex;align-items:center;gap:10px;
+  padding:0 14px;background:var(--s1);
+  border-bottom:1px solid var(--brd);
+}
+.brand{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--live);
+  box-shadow:0 0 8px var(--live);animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.brand-name{font-size:16px;font-weight:900;letter-spacing:.03em;
+  background:linear-gradient(130deg,#e879f9,#818cf8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+
+.spin{display:inline-block;width:16px;height:16px;
+  border:2px solid var(--brd);border-top-color:var(--acc);
+  border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.badge{font-size:11px;font-weight:700;
+  background:rgba(192,38,211,.15);color:#e879f9;
+  border:1px solid rgba(192,38,211,.3);
+  border-radius:20px;padding:3px 9px;display:none}
+
+.cast-btn{
+  display:flex;align-items:center;gap:5px;
+  background:var(--s2);border:1px solid var(--brd);
+  border-radius:8px;color:var(--txt2);
+  padding:7px 11px;font-size:12px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:all .2s;
+}
+.cast-btn:active,.cast-btn:hover{border-color:#22d3ee;color:#22d3ee}
+.cast-btn.on{border-color:#22d3ee;color:#22d3ee;background:rgba(34,211,238,.1)}
+
+/* ── MOBILE: video top, list below ── */
+.app{
+  position:fixed;top:56px;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;
+}
+
+/* VIDEO AREA */
+.vid-area{
+  position:relative;flex-shrink:0;
+  width:100%;background:#000;
+  height:calc(100vw * 9/16); /* 16:9 */
+  max-height:42vh;
+}
+video{width:100%;height:100%;object-fit:contain;display:none}
+
+.splash{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  background:radial-gradient(ellipse at 50% 55%,#150030 0%,#08080f 70%);
+}
+.splash-title{font-size:22px;font-weight:900;
+  background:linear-gradient(130deg,#e879f9,#818cf8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.splash-sub{font-size:12px;color:var(--txt2)}
+.splash-spin{width:30px;height:30px;border:3px solid var(--brd);border-top-color:var(--acc);
+  border-radius:50%;animation:spin .8s linear infinite}
+.splash-ready{font-size:12px;color:var(--txt2);display:none}
+
+/* overlay top-left */
+.overlay{
+  position:absolute;top:8px;left:8px;
+  background:rgba(8,8,15,.88);backdrop-filter:blur(10px);
+  border:1px solid rgba(192,38,211,.25);border-radius:9px;
+  padding:7px 11px;display:flex;align-items:center;gap:8px;
+  opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.overlay.show{opacity:1}
+.ov-num{font-size:16px;font-weight:900;color:var(--acc);min-width:26px}
+.ov-img{width:28px;height:28px;object-fit:contain;border-radius:5px;display:none}
+.ov-nm{font-size:13px;font-weight:700;color:#fff}
+
+/* buffer */
+.buf{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:36px;height:36px;border:3px solid rgba(255,255,255,.1);
+  border-top-color:#e879f9;border-radius:50%;
+  animation:spin .8s linear infinite;display:none}
+
+/* err */
+.err-badge{
+  position:absolute;top:8px;right:8px;
+  background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);
+  color:#fca5a5;font-size:10px;font-weight:700;
+  border-radius:20px;padding:3px 10px;display:none}
+
+/* toast */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:999;
+  background:var(--s2);border:1px solid var(--brd);color:var(--txt);
+  font-size:12px;font-weight:600;
+  padding:7px 16px;border-radius:20px;
+  opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* MINI CONTROLS under video */
+.mini-ctrl{
+  display:flex;align-items:center;gap:6px;
+  padding:0 10px;height:42px;flex-shrink:0;
+  background:rgba(8,8,15,.97);border-bottom:1px solid var(--brd);
+}
+.mc{background:none;border:none;color:var(--txt2);cursor:pointer;
+  font-size:20px;padding:4px 6px;border-radius:6px;display:flex;align-items:center;line-height:1}
+.mc:active{color:#fff;background:rgba(255,255,255,.1)}
+
+.vol-row{display:flex;align-items:center;gap:5px;flex:1}
+input[type=range]{
+  -webkit-appearance:none;flex:1;height:3px;
+  background:var(--brd);border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  background:var(--acc);border-radius:50%;border:none}
+
+.now-play{flex:1;font-size:11.5px;color:var(--txt2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.now-play b{color:var(--txt);font-weight:600}
+.cast-st{font-size:10px;color:#22d3ee;font-weight:700;display:none;white-space:nowrap}
+.cast-st.on{display:block}
+
+/* SEARCH (mobile: inside list area) */
+.list-top{
+  padding:8px 10px 6px;flex-shrink:0;
+  background:var(--s1);border-bottom:1px solid var(--brd);
+}
+.search-box{position:relative}
+.search-box svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none}
+.search-box input{
+  width:100%;background:var(--bg);border:1px solid var(--brd);
+  border-radius:9px;padding:8px 10px 8px 30px;
+  color:var(--txt);font-size:13px;font-family:inherit;outline:none;
+  transition:border-color .2s;
+}
+.search-box input:focus{border-color:var(--acc)}
+.search-box input::placeholder{color:var(--txt2)}
+
+/* CHANNEL LIST */
+.ch-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 6px 16px}
+.ch-list::-webkit-scrollbar{width:3px}
+.ch-list::-webkit-scrollbar-thumb{background:var(--brd);border-radius:3px}
+
+.grp{font-size:9px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--txt2);padding:10px 6px 3px}
+
+.ch{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 9px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;transition:background .1s;
+  -webkit-user-select:none;user-select:none;
+}
+.ch:active,.ch:hover{background:var(--s2)}
+.ch.active{background:rgba(192,38,211,.11);border-color:rgba(192,38,211,.3)}
+
+.ch-n{font-size:10px;font-weight:800;color:var(--txt2);min-width:22px;text-align:right;flex-shrink:0}
+.ch.active .ch-n{color:var(--acc)}
+
+.logo-box{width:32px;height:32px;flex-shrink:0}
+.logo-box img{width:32px;height:32px;object-fit:contain;border-radius:6px;background:var(--s3)}
+.logo-fb{width:32px;height:32px;border-radius:6px;
+  background:linear-gradient(135deg,var(--acc2),var(--acc));
+  display:none;align-items:center;justify-content:center;
+  font-size:12px;font-weight:900;color:#fff;text-transform:uppercase}
+
+.ch-nm{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pip{width:6px;height:6px;background:var(--live);border-radius:50%;flex-shrink:0;animation:blink 1.5s infinite}
+
+/* ═══════════════════════════════════════
+   PC LAYOUT (≥ 700px)
+═══════════════════════════════════════ */
+@media(min-width:700px){
+  .hdr{height:50px}
+  .search-hdr{display:flex;flex:1;max-width:300px;position:relative}
+  .search-hdr svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none}
+  .search-hdr input{
+    width:100%;background:var(--bg);border:1px solid var(--brd);
+    border-radius:8px;padding:7px 10px 7px 30px;
+    color:var(--txt);font-size:12.5px;font-family:inherit;outline:none;
+    transition:border-color .2s;
+  }
+  .search-hdr input:focus{border-color:var(--acc)}
+  .search-hdr input::placeholder{color:var(--txt2)}
+
+  .app{flex-direction:row}
+
+  /* sidebar */
+  .sidebar-col{
+    width:260px;min-width:200px;flex-shrink:0;
+    display:flex;flex-direction:column;
+    background:var(--s1);border-right:1px solid var(--brd);overflow:hidden;
+  }
+  .list-top{display:none} /* search in header on PC */
+  .ch-list{padding:4px 5px 12px}
+
+  /* player col */
+  .player-col{flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden}
+
+  .vid-area{flex:1;height:auto;max-height:none}
+
+  /* controls bar at bottom */
+  .mini-ctrl{
+    height:50px;padding:0 14px;gap:10px;
+    border-top:1px solid rgba(255,255,255,.05);border-bottom:none;
+  }
+  .mc{font-size:18px}
+
+  /* hide mobile search */
+  .mobile-search-slot{display:none}
+}
+
+/* hide PC search bar on mobile */
+.search-hdr{display:none}
+@media(min-width:700px){.search-hdr{display:flex}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="brand">
+    <div class="dot"></div>
+    <div class="brand-name">ExoticTV</div>
+  </div>
+
+  <!-- PC only search in header -->
+  <div class="search-hdr">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6868a0" stroke-width="2.5">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input type="text" id="searchHdr" placeholder="Rechercher…" oninput="filterCh(this.value)">
+  </div>
+
+  <div class="hdr-right">
+    <div class="spin" id="loadSpin"></div>
+    <div class="badge" id="badge"></div>
+    <button class="cast-btn" id="castBtn" onclick="toggleCast()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 8.5A12.5 12.5 0 0 1 14.5 21"/><path d="M2 13a8 8 0 0 1 8 8"/>
+        <rect x="2" y="17" width="4" height="4" rx="1"/><line x1="22" y1="3" x2="2" y2="3"/>
+      </svg>Cast
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- SIDEBAR (PC) / top section (mobile) -->
+  <div class="sidebar-col" id="sidebarCol">
+
+    <!-- Mobile search -->
+    <div class="list-top mobile-search-slot">
+      <div class="search-box">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6868a0" stroke-width="2.5">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="searchMob" placeholder="Rechercher une chaîne…" oninput="filterCh(this.value)">
+      </div>
+    </div>
+
+    <div class="ch-list" id="chList">
+      <div style="padding:24px;text-align:center;color:var(--txt2);font-size:13px">Chargement…</div>
+    </div>
+  </div>
+
+  <!-- PLAYER COL -->
+  <div class="player-col" id="playerCol">
+
+    <!-- VIDEO -->
+    <div class="vid-area" id="vidArea">
+      <div class="splash" id="splash">
+        <div class="splash-title">ExoticTV</div>
+        <div class="splash-sub" id="splashSub">Chargement…</div>
+        <div class="splash-spin" id="splashSpin"></div>
+        <div class="splash-ready" id="splashReady">↓ Choisis une chaîne</div>
+      </div>
+      <video id="vid" playsinline webkit-playsinline></video>
+      <div class="buf" id="buf"></div>
+      <div class="overlay" id="overlay">
+        <div class="ov-num" id="ovNum"></div>
+        <img class="ov-img" id="ovImg">
+        <div class="ov-nm" id="ovNm"></div>
+      </div>
+      <div class="err-badge" id="errBadge">⚠ Flux indisponible</div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="mini-ctrl">
+      <button class="mc" onclick="prevCh()" title="Précédente">⏮</button>
+      <button class="mc" onclick="nextCh()" title="Suivante">⏭</button>
+      <div class="vol-row">
+        <button class="mc" id="muteBtn" onclick="toggleMute()">🔊</button>
+        <input type="range" id="volSlider" min="0" max="1" step="0.05" value="1" oninput="setVol(this.value)">
+      </div>
+      <button class="mc" onclick="toggleFs()" title="Plein écran">⛶</button>
+      <div class="now-play" id="nowPlay">— Aucune chaîne —</div>
+      <div class="cast-st" id="castSt">📡</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MOBILE: channel list BELOW controls -->
+<!-- On mobile the sidebar-col IS below the player naturally in column flex -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+// Same-origin fetch: the HTML is served from the same GitHub Pages repo
+// so no CORS at all. Path relative to this file.
+const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
+// Absolute URL as fallback (works when opening locally or from different origin)
+const PLAYLIST_ABS = 'https://exoticsecurityweb.github.io/iptv-exotic/exotic-tv-playlist.m3u';
+// Radio playlist (même logique, chemin dans /tv)
+const RADIO_RELATIVE = 'tv/exotic-radio-playlist.m3u';
+const RADIO_ABS = 'https://exoticsecurityweb.github.io/iptv-exotic/tv/exotic-radio-playlist.m3u';
+const PROXIES = [
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+// ── STATE ─────────────────────────────────────────────────────
+let channels=[], filtered=[], curIdx=-1;
+let hlsInst=null, ovTmr=null, castCtx=null, castSess=null;
+
+// ── MOBILE LAYOUT FIX ─────────────────────────────────────────
+// On mobile: app = column → vid-area on top, then sidebar below
+// On PC (>=700px): app = row → sidebar left, player right (via CSS)
+function applyLayout(){
+  const pc = window.innerWidth >= 700;
+  const app = document.querySelector('.app');
+  const sidebar = g('sidebarCol');
+  const playerCol = g('playerCol');
+
+  if(pc){
+    app.style.flexDirection = 'row';
+    // sidebar left
+    sidebar.style.order = '0';
+    sidebar.style.height = '100%';
+    sidebar.style.overflowY = 'hidden';
+    playerCol.style.order = '1';
+  } else {
+    app.style.flexDirection = 'column';
+    // video + controls on top, then list
+    playerCol.style.order = '0';
+    sidebar.style.order = '1';
+    sidebar.style.height = 'auto';
+    sidebar.style.flex = '1';
+    sidebar.style.minHeight = '0';
+    sidebar.style.overflowY = 'hidden';
+  }
+}
+window.addEventListener('resize', applyLayout);
+applyLayout();
+
+// ── BOOT ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', loadPlaylist);
+
+async function fetchPlaylistText(relative, absolute){
+  const withTimeout = (url, ms=8000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), ms);
+    return fetch(url, {cache:'no-cache', signal:ctrl.signal}).finally(()=>clearTimeout(t));
+  };
+  let text = null;
+  try{
+    const r = await withTimeout(relative);
+    if(r.ok) text = await r.text();
+  }catch{}
+  if(!text){
+    try{
+      const r = await withTimeout(absolute);
+      if(r.ok) text = await r.text();
+    }catch{}
+  }
+  if(!text){
+    for(const pFn of PROXIES){
+      try{
+        const r = await withTimeout(pFn(absolute));
+        if(r.ok){ text = await r.text(); break; }
+      }catch{}
+    }
+  }
+  return text;
+}
+
+async function loadPlaylist(){
+  const tvText = await fetchPlaylistText(PLAYLIST_RELATIVE, PLAYLIST_ABS);
+
+  if(!tvText){
+    g('splashSub').textContent = '❌ Impossible de charger la playlist';
+    g('splashSpin').style.display = 'none';
+    g('loadSpin').style.display = 'none';
+    showToast('Erreur réseau — vérifie ta connexion');
+    g('chList').innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-size:13px">Erreur chargement</div>';
+    return;
+  }
+
+  channels = parseM3U(tvText);
+  const tvCount = channels.length;
+  filtered = [...channels];
+
+  g('loadSpin').style.display = 'none';
+  const b = g('badge');
+  b.textContent = tvCount + ' chaînes';
+  b.style.display = '';
+  g('splashSpin').style.display = 'none';
+  g('splashSub').textContent = tvCount + ' chaînes';
+  g('splashReady').style.display = 'block';
+
+  renderList();
+
+  // Playlist radio : chargée en arrière-plan, n'empêche jamais la TV de s'afficher
+  fetchPlaylistText(RADIO_RELATIVE, RADIO_ABS).then(radioText => {
+    if(!radioText) return;
+    const radioChannels = parseM3U(radioText).map(ch => ({...ch, isRadio:true}));
+    if(!radioChannels.length) return;
+    channels = channels.concat(radioChannels);
+    filtered = [...channels];
+    const countLabel = `${tvCount} chaînes • ${radioChannels.length} radios`;
+    b.textContent = countLabel;
+    g('splashSub').textContent = countLabel;
+    renderList();
+  }).catch(()=>{});
+}
+
+// ── PARSE M3U ─────────────────────────────────────────────────
+function parseM3U(raw){
+  const lines = raw.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean);
+  const out=[], n={v:1};
+  let cur=null;
+  for(const line of lines){
+    if(line.startsWith('#EXTINF')){
+      cur={};
+      cur.num  = (rx(line,/tvg-chno="([^"]+)"/i)||rx(line,/channel-number="([^"]+)"/i)||String(n.v));
+      cur.logo = rx(line,/tvg-logo="([^"]+)"/i)||'';
+      cur.grp  = (rx(line,/group-title="([^"]+)"/i)||'Général').trim();
+      cur.name = (line.split(',').pop()||'Chaîne '+n.v).trim();
+      n.v++;
+    } else if(cur && !line.startsWith('#') && line.length>4){
+      cur.url=line; out.push(cur); cur=null;
+    }
+  }
+  return out;
+}
+function rx(s,re){const m=s.match(re);return m?m[1]:null}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderList(){
+  const list = g('chList');
+  if(!filtered.length){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:var(--txt2);font-size:13px">Aucun résultat</div>';
+    return;
+  }
+  const seen=[], grps={};
+  for(const ch of filtered){
+    if(!grps[ch.grp]){seen.push(ch.grp);grps[ch.grp]=[];}
+    grps[ch.grp].push(ch);
+  }
+  let h='';
+  for(const gn of seen){
+    h+=`<div class="grp">${e(gn)}</div>`;
+    for(const ch of grps[gn]){
+      const idx=channels.indexOf(ch), act=idx===curIdx;
+      const logo=ch.logo
+        ?`<img src="${e(ch.logo)}" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="logo-fb">${e(ch.name[0]||'?')}</div>`
+        :`<div class="logo-fb" style="display:flex">${e(ch.name[0]||'?')}</div>`;
+      h+=`<div class="ch${act?' active':''}" onclick="play(${idx})">
+        <div class="ch-n">${e(ch.num)}</div>
+        <div class="logo-box">${logo}</div>
+        <div class="ch-nm">${e(ch.name)}</div>
+        ${act?'<div class="pip"></div>':''}
+      </div>`;
+    }
+  }
+  list.innerHTML=h;
+}
+function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+// ── SEARCH ────────────────────────────────────────────────────
+function filterCh(q){
+  // sync both inputs
+  g('searchHdr').value=q;
+  if(g('searchMob')) g('searchMob').value=q;
+  const lq=q.toLowerCase();
+  filtered=lq
+    ?channels.filter(c=>c.name.toLowerCase().includes(lq)||c.grp.toLowerCase().includes(lq)||c.num.includes(lq))
+    :[...channels];
+  renderList();
+}
+
+// ── PROXY CORS (utilisé en fallback quand le stream direct échoue) ──────────
+function proxify(url){
+  return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+}
+
+// ── PLAY ──────────────────────────────────────────────────────
+let retryCount=0, usingProxy=false;
+const MAX_RETRY=2;
+
+function play(idx){
+  const ch=channels[idx]; if(!ch) return;
+  curIdx=idx;
+  retryCount=0;
+  usingProxy=false;
+  _startPlay(ch, ch.url);
+}
+
+function _startPlay(ch, srcUrl){
+  const vid=g('vid');
+  g('splash').style.display='none';
+  g('errBadge').style.display='none';
+  vid.style.display='block';
+  showBuf(true);
+
+  if(hlsInst){hlsInst.destroy();hlsInst=null;}
+  vid.pause(); vid.removeAttribute('src'); vid.load();
+
+  // Flux audio direct (mp3/aac, pas de manifest HLS) → lecture native, pas de HLS.js
+  // Les flux radio en .m3u8 (Amagi, etc.) passent par HLS.js normalement, comme la TV
+  const isRadioStream = /\.(mp3|aac)(\?|$)/i.test(srcUrl);
+  if(isRadioStream){
+    vid.src = srcUrl;
+    vid.addEventListener('canplay', () => showBuf(false), {once:true});
+    vid.play().catch(()=>{});
+    vid.onerror = () => {
+      if(!usingProxy){
+        usingProxy = true;
+        _startPlay(ch, proxify(ch.url));
+        return;
+      }
+      showBuf(false);
+      g('errBadge').style.display='block';
+    };
+    return;
+  }
+
+  if(Hls.isSupported()){
+    hlsInst=new Hls({
+      enableWorker:true, lowLatencyMode:true,
+      maxBufferLength:30, maxMaxBufferLength:60,
+      fragLoadingTimeOut:20000, manifestLoadingTimeOut:20000,
+    });
+    hlsInst.loadSource(srcUrl);
+    hlsInst.attachMedia(vid);
+    hlsInst.on(Hls.Events.MANIFEST_PARSED,()=>{showBuf(false);vid.play().catch(()=>{});});
+    hlsInst.on(Hls.Events.ERROR,(_,d)=>{
+      if(!d.fatal) return;
+
+      if(d.type===Hls.ErrorTypes.NETWORK_ERROR){
+        if(!usingProxy){
+          // 1ère stratégie : retenter en direct quelques fois
+          if(retryCount < MAX_RETRY){
+            retryCount++;
+            hlsInst.startLoad();
+            return;
+          }
+          // Épuisé en direct → bascule sur proxy CORS
+          usingProxy=true;
+          retryCount=0;
+          hlsInst.destroy(); hlsInst=null;
+          _startPlay(ch, proxify(ch.url));
+          return;
+        } else {
+          // Déjà en proxy et ça échoue encore → on retente le proxy une fois
+          if(retryCount < MAX_RETRY){
+            retryCount++;
+            hlsInst.startLoad();
+            return;
+          }
+        }
+      }
+
+      // Erreur fatale non-réseau, ou tout épuisé
+      hlsInst.destroy(); hlsInst=null;
+      showBuf(false);
+      g('errBadge').style.display='block';
+    });
+  } else if(vid.canPlayType('application/vnd.apple.mpegurl')){
+    vid.src=srcUrl;
+    vid.addEventListener('canplay',()=>showBuf(false),{once:true});
+    vid.play().catch(()=>{});
+  } else {
+    vid.src=srcUrl;
+    vid.addEventListener('canplay',()=>showBuf(false),{once:true});
+    vid.play().catch(()=>{});
+  }
+  vid.onerror=()=>{
+    if(!usingProxy){
+      usingProxy=true;
+      _startPlay(ch, proxify(ch.url));
+    } else {
+      showBuf(false);
+      g('errBadge').style.display='block';
+    }
+  };
+
+  g('nowPlay').innerHTML=`<b>${e(ch.name)}</b>`;
+  showOverlay(ch);
+  renderList();
+  setTimeout(()=>document.querySelector('.ch.active')?.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
+  if(castSess) castCh(ch);
+
+  // On mobile: scroll to top so video is visible
+  if(window.innerWidth<700) window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function showBuf(v){g('buf').style.display=v?'block':'none'}
+
+// ── OVERLAY ───────────────────────────────────────────────────
+function showOverlay(ch){
+  g('ovNum').textContent='#'+ch.num;
+  g('ovNm').textContent=ch.name;
+  const img=g('ovImg');
+  if(ch.logo){img.src=ch.logo;img.style.display='block';}
+  else img.style.display='none';
+  const ov=g('overlay');
+  ov.classList.add('show');
+  clearTimeout(ovTmr);
+  ovTmr=setTimeout(()=>ov.classList.remove('show'),3500);
+}
+
+// ── NAV ───────────────────────────────────────────────────────
+function prevCh(){if(channels.length)play((curIdx-1+channels.length)%channels.length)}
+function nextCh(){if(channels.length)play((curIdx+1)%channels.length)}
+
+// ── VOLUME ────────────────────────────────────────────────────
+function setVol(v){
+  const vid=g('vid'); vid.volume=parseFloat(v);
+  g('muteBtn').textContent=parseFloat(v)===0?'🔇':parseFloat(v)<0.5?'🔉':'🔊';
+}
+function toggleMute(){
+  const vid=g('vid'); vid.muted=!vid.muted;
+  g('volSlider').value=vid.muted?0:vid.volume;
+  g('muteBtn').textContent=vid.muted?'🔇':'🔊';
+}
+
+// ── FULLSCREEN ────────────────────────────────────────────────
+function toggleFs(){
+  const w=g('vidArea');
+  if(document.fullscreenElement) document.exitFullscreen();
+  else if(w.requestFullscreen) w.requestFullscreen();
+  else if(w.webkitRequestFullscreen) w.webkitRequestFullscreen();
+}
+
+// ── CAST ──────────────────────────────────────────────────────
+window['__onGCastApiAvailable']=ok=>{if(ok)initCast()};
+function initCast(){
+  if(!window.cast)return;
+  castCtx=cast.framework.CastContext.getInstance();
+  castCtx.setOptions({
+    receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+    autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+  });
+  castCtx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED,()=>{
+    castSess=castCtx.getCurrentSession();
+    const btn=g('castBtn'), st=g('castSt');
+    if(castSess){btn.classList.add('on');btn.textContent='📡 On';st.classList.add('on');if(curIdx>=0)castCh(channels[curIdx]);}
+    else{btn.classList.remove('on');btn.textContent='Cast';st.classList.remove('on');}
+  });
+}
+function toggleCast(){
+  if(typeof cast==='undefined'){showToast('Cast : utilise Chrome');return;}
+  castSess?castSess.endSession(true):castCtx.requestSession().catch(()=>{});
+}
+function castCh(ch){
+  if(!castSess||!ch)return;
+  const mi=new chrome.cast.media.MediaInfo(ch.url,'application/x-mpegURL');
+  mi.metadata=new chrome.cast.media.GenericMediaMetadata();
+  mi.metadata.title=ch.name;
+  if(ch.logo)mi.metadata.images=[{url:ch.logo}];
+  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch(()=>showToast('Erreur Cast'));
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+let tTmr;
+function showToast(msg){
+  const t=g('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(tTmr);tTmr=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ── KEYBOARD (PC) ─────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='ArrowUp'){e.preventDefault();prevCh();}
+  if(e.key==='ArrowDown'){e.preventDefault();nextCh();}
+  if(e.key==='f'||e.key==='F')toggleFs();
+  if(e.key==='m'||e.key==='M')toggleMute();
+});
+
+// ── UTIL ──────────────────────────────────────────────────────
+function g(id){return document.getElementById(id)}
+</script>
+<script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
+</body>
+</html>
