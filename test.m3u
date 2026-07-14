@@ -9,10 +9,9 @@ http://86.202.245.66:9981/stream/channelid/1740296275?profile=pass
 https://archive.org/download/palmimeteo3_202606/202606231605%20%281%29.ia.mp4
 #EXTINF:-1 tvg-name="Franceinfo" tvg-logo="https://img.20mn.fr/0Gkk_u0qS22pBMK_ysg7kQ/1200x768_logo-chaine-france-info",Franceinfo
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/franceinfo.m3u8
-#EXTINF:-1 tvg-name="M6" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/83/TFX_logo_2018.svg/1920px-TFX_logo_2018.svg.png?_=20211222234220",TFX
-https://alive-tfx-hls.cdn-0.diff.tf1.fr/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjaXAiOiI3OS4xMjcuMTY5LjciLCJjbWNkIjoiIiwiZXhwIjoxNzgxODcxNTQ3LCJnaWQiOiJlNzIwMzhjMzU5NDg0MDc1YjgzOGUwNjY5NWI3ZDQ5NiIsImlhdCI6MTc4MTg1NzE0NywiaXNzIjoiZGVsaXZlcnkiLCJtYXhiIjowLCJzdGVtIjoiL3Byb2QvVEZYL2NtYWYvb3V0Iiwic3ViIjoiZTcyMDM4YzM1OTQ4NDA3NWI4MzhlMDY2OTViN2Q0OTYifQ.IOWUZkus1GDdUmI6YZd1H_hzLQfQReY1AHSEHBhR8zI/prod/TFX/cmaf/out/TFX-mp4a_140800_fra=20000.m3u8
+#EXTINF:-1 tvg-name="TFX" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/8/83/TFX_logo_2018.svg/1920px-TFX_logo_2018.svg.png?_=20211222234220",TFX
+https://raw.githubusercontent.com/mikekaprielian/rtnaodhor93n398/refs/heads/main/fr/videotfx.m3u8
 #EXTINF:-1 tvg-name="TV7 Bordeaux" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/3/36/Logo_TV7_Bordeaux_%282023%29.png",TV7 Bordeaux
-https://exoticsecurityweb.github.io/iptv-exotic/chaineIPTV/chainesTV/TV7Bordeaux.m3u8
+https://tvradiozap.eu/tools/cof-m3u8.php/yt/UCV9yrdAfyd1BdDyd4tDdVxg.m3u8
 #EXTINF:-1 tvg-name="LCI" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/thumb/3/38/LCI_-_Logo_%28Ao%C3%BBt_2017%29.svg/1280px-LCI_-_Logo_%28Ao%C3%BBt_2017%29.svg.png?_=20240422160041",LCI
-https://raw.githubusercontent.com/pinkisso/mored/refs/heads/main/res/26-1/lci1.m3u8
-
+https://tvradiozap.eu/tools/tf-m3u8.php/LCI.m3u8
