@@ -342,6 +342,7 @@ input[type=range]::-webkit-slider-thumb{
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
+// VERSION: v3 — ajout Worker CORS proxy pour Cast (fix flux bloqués)
 // Same-origin fetch: the HTML is served from the same GitHub Pages repo
 // so no CORS at all. Path relative to this file.
 const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
@@ -391,6 +392,7 @@ applyLayout();
 
 // ── BOOT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', loadPlaylist);
+console.log('ExoticTV Player — v3');
 
 async function fetchPlaylistText(relative, absolute){
   const withTimeout = (url, ms=8000) => {
@@ -699,11 +701,17 @@ function toggleCast(){
   if(typeof cast==='undefined'){showToast('Cast : utilise Chrome');return;}
   castSess?castSess.endSession(true):castCtx.requestSession().catch(()=>{});
 }
+// Worker Cloudflare qui rajoute les headers CORS + réécrit le HLS,
+// nécessaire car le Chromecast Default Media Receiver exige des headers
+// CORS que la plupart des flux IPTV/radio n'envoient pas nativement.
+const CAST_PROXY = 'https://exotic-cast-proxy.vosprojets.workers.dev/';
+
 function castCh(ch){
   if(!castSess||!ch)return;
   const isAudio = /\.(mp3|aac)(\?|$)/i.test(ch.url);
   const mimeType = isAudio ? 'audio/mpeg' : 'application/x-mpegURL';
-  const mi=new chrome.cast.media.MediaInfo(ch.url,mimeType);
+  const castUrl = CAST_PROXY + '?url=' + encodeURIComponent(ch.url);
+  const mi=new chrome.cast.media.MediaInfo(castUrl,mimeType);
   mi.streamType = chrome.cast.media.StreamType.LIVE;
   mi.metadata=new chrome.cast.media.GenericMediaMetadata();
   mi.metadata.title=ch.name;
