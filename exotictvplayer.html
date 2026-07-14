@@ -701,11 +701,14 @@ function toggleCast(){
 }
 function castCh(ch){
   if(!castSess||!ch)return;
-  const mi=new chrome.cast.media.MediaInfo(ch.url,'application/x-mpegURL');
+  const isAudio = /\.(mp3|aac)(\?|$)/i.test(ch.url);
+  const mimeType = isAudio ? 'audio/mpeg' : 'application/x-mpegURL';
+  const mi=new chrome.cast.media.MediaInfo(ch.url,mimeType);
+  mi.streamType = chrome.cast.media.StreamType.LIVE;
   mi.metadata=new chrome.cast.media.GenericMediaMetadata();
   mi.metadata.title=ch.name;
   if(ch.logo)mi.metadata.images=[{url:ch.logo}];
-  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch(()=>showToast('Erreur Cast'));
+  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch(()=>showToast('Erreur Cast — flux non supporté par le récepteur'));
 }
 
 // ── TOAST ─────────────────────────────────────────────────────
