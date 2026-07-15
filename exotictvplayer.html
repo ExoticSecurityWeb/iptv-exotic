@@ -342,7 +342,7 @@ input[type=range]::-webkit-slider-thumb{
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-// VERSION: v6 — fix session Cast fantôme + auto-cast silencieux (plus d'erreur en lecture normale)
+// VERSION: v7 — détection réelle du type de flux (MP4 vs HLS) via HEAD par le Worker, fix boucle infinie sur flux MP4
 // Same-origin fetch: the HTML is served from the same GitHub Pages repo
 // so no CORS at all. Path relative to this file.
 const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
@@ -392,7 +392,7 @@ applyLayout();
 
 // ── BOOT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', loadPlaylist);
-console.log('ExoticTV Player — v6');
+console.log('ExoticTV Player — v7');
 
 async function fetchPlaylistText(relative, absolute){
   const withTimeout = (url, ms=8000) => {
@@ -717,13 +717,12 @@ let castRetry = 0;
 // silent=true : appel automatique (changement de session/chaîne pendant un cast actif)
 //   → pas de spam d'erreur, une seule tentative
 // silent=false : appel explicite (bouton Cast cliqué) → retries + erreur visible si échec
-function castCh(ch, silent){
+async function castCh(ch, silent){
   if(!castSess||!ch)return;
-  const isAudio = /\.(mp3|aac)(\?|$)/i.test(ch.url);
-  const mimeType = isAudio ? 'audio/mpeg' : 'application/x-mpegURL';
+  const mimeType = await detectMime(ch.url);
   const castUrl = CAST_PROXY + '?url=' + encodeURIComponent(ch.url);
   const mi=new chrome.cast.media.MediaInfo(castUrl,mimeType);
-  mi.streamType = chrome.cast.media.StreamType.LIVE;
+  mi.streamType = mimeType==='application/x-mpegURL' ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
   mi.metadata=new chrome.cast.media.GenericMediaMetadata();
   mi.metadata.title=ch.name;
   if(ch.logo)mi.metadata.images=[{url:ch.logo}];
@@ -741,6 +740,29 @@ function castCh(ch, silent){
     const detail = err && (err.description || err.reason || err.code || JSON.stringify(err));
     showToast('Erreur Cast: ' + (detail || 'inconnue'));
   });
+}
+
+// Sniff le vrai Content-Type au lieu de deviner par extension (utile pour les URLs
+// sans extension claire, ex. archive.org, ou les flux MP4 directs pris pour du HLS)
+async function detectMime(url){
+  if(/\.(mp3)(\?|$)/i.test(url)) return 'audio/mpeg';
+  if(/\.(aac)(\?|$)/i.test(url)) return 'audio/aac';
+  if(/\.(mp4|mov)(\?|$)/i.test(url)) return 'video/mp4';
+  if(/\.(m3u8)(\?|$)/i.test(url)) return 'application/x-mpegURL';
+  try{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),4000);
+    const r=await fetch(CAST_PROXY+'?url='+encodeURIComponent(url),{method:'HEAD',signal:ctrl.signal});
+    clearTimeout(t);
+    const ct=(r.headers.get('content-type')||'').toLowerCase();
+    if(ct.includes('mpegurl')) return 'application/x-mpegURL';
+    if(ct.includes('mp4')) return 'video/mp4';
+    if(ct.includes('mpeg')) return 'audio/mpeg';
+    if(ct.includes('aac')) return 'audio/aac';
+    if(ct.includes('mp2t')) return 'video/mp2t';
+  }catch{}
+  // Par défaut : la majorité des chaînes IPTV sont en HLS
+  return 'application/x-mpegURL';
 }
 
 // ── TOAST ─────────────────────────────────────────────────────
