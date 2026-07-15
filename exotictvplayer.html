@@ -342,7 +342,7 @@ input[type=range]::-webkit-slider-thumb{
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-// VERSION: v5 — retry auto sur erreur Cast (réduit saccades/coupures)
+// VERSION: v6 — fix session Cast fantôme + auto-cast silencieux (plus d'erreur en lecture normale)
 // Same-origin fetch: the HTML is served from the same GitHub Pages repo
 // so no CORS at all. Path relative to this file.
 const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
@@ -392,7 +392,7 @@ applyLayout();
 
 // ── BOOT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', loadPlaylist);
-console.log('ExoticTV Player — v5');
+console.log('ExoticTV Player — v6');
 
 async function fetchPlaylistText(relative, absolute){
   const withTimeout = (url, ms=8000) => {
@@ -637,7 +637,7 @@ function _startPlay(ch, srcUrl){
   showOverlay(ch);
   renderList();
   setTimeout(()=>document.querySelector('.ch.active')?.scrollIntoView({behavior:'smooth',block:'nearest'}),80);
-  if(castSess) castCh(ch);
+  if(castSess) castCh(ch, true);
 
   // On mobile: scroll to top so video is visible
   if(window.innerWidth<700) window.scrollTo({top:0,behavior:'smooth'});
@@ -690,11 +690,18 @@ function initCast(){
     receiverApplicationId:chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
     autoJoinPolicy:chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
   });
-  castCtx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED,()=>{
-    castSess=castCtx.getCurrentSession();
+  castCtx.addEventListener(cast.framework.CastContextEventType.SESSION_STATE_CHANGED,(evt)=>{
+    const state = evt && evt.sessionState;
+    const active = state === cast.framework.SessionState.SESSION_STARTED
+                || state === cast.framework.SessionState.SESSION_RESUMED;
+    castSess = active ? castCtx.getCurrentSession() : null;
     const btn=g('castBtn'), st=g('castSt');
-    if(castSess){btn.classList.add('on');btn.textContent='📡 On';st.classList.add('on');if(curIdx>=0)castCh(channels[curIdx]);}
-    else{btn.classList.remove('on');btn.textContent='Cast';st.classList.remove('on');}
+    if(castSess){
+      btn.classList.add('on');btn.textContent='📡 On';st.classList.add('on');
+      if(curIdx>=0) castCh(channels[curIdx], true);
+    } else {
+      btn.classList.remove('on');btn.textContent='Cast';st.classList.remove('on');
+    }
   });
 }
 function toggleCast(){
@@ -707,7 +714,10 @@ function toggleCast(){
 const CAST_PROXY = 'https://exotic-cast-proxy.vosprojets.workers.dev/';
 
 let castRetry = 0;
-function castCh(ch){
+// silent=true : appel automatique (changement de session/chaîne pendant un cast actif)
+//   → pas de spam d'erreur, une seule tentative
+// silent=false : appel explicite (bouton Cast cliqué) → retries + erreur visible si échec
+function castCh(ch, silent){
   if(!castSess||!ch)return;
   const isAudio = /\.(mp3|aac)(\?|$)/i.test(ch.url);
   const mimeType = isAudio ? 'audio/mpeg' : 'application/x-mpegURL';
@@ -721,9 +731,10 @@ function castCh(ch){
     castRetry = 0;
   }).catch((err)=>{
     console.error('Cast error:', err);
+    if(silent) return; // pas de retry ni de toast pour les appels automatiques
     if(castRetry < 2){
       castRetry++;
-      setTimeout(()=>castCh(ch), 1500);
+      setTimeout(()=>castCh(ch, false), 1500);
       return;
     }
     castRetry = 0;
