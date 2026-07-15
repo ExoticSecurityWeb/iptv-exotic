@@ -342,7 +342,7 @@ input[type=range]::-webkit-slider-thumb{
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-// VERSION: v4 — debug détaillé erreurs Cast (worker confirmé fonctionnel)
+// VERSION: v5 — retry auto sur erreur Cast (réduit saccades/coupures)
 // Same-origin fetch: the HTML is served from the same GitHub Pages repo
 // so no CORS at all. Path relative to this file.
 const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
@@ -392,7 +392,7 @@ applyLayout();
 
 // ── BOOT ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', loadPlaylist);
-console.log('ExoticTV Player — v3');
+console.log('ExoticTV Player — v5');
 
 async function fetchPlaylistText(relative, absolute){
   const withTimeout = (url, ms=8000) => {
@@ -706,6 +706,7 @@ function toggleCast(){
 // CORS que la plupart des flux IPTV/radio n'envoient pas nativement.
 const CAST_PROXY = 'https://exotic-cast-proxy.vosprojets.workers.dev/';
 
+let castRetry = 0;
 function castCh(ch){
   if(!castSess||!ch)return;
   const isAudio = /\.(mp3|aac)(\?|$)/i.test(ch.url);
@@ -716,8 +717,16 @@ function castCh(ch){
   mi.metadata=new chrome.cast.media.GenericMediaMetadata();
   mi.metadata.title=ch.name;
   if(ch.logo)mi.metadata.images=[{url:ch.logo}];
-  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch((err)=>{
+  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).then(()=>{
+    castRetry = 0;
+  }).catch((err)=>{
     console.error('Cast error:', err);
+    if(castRetry < 2){
+      castRetry++;
+      setTimeout(()=>castCh(ch), 1500);
+      return;
+    }
+    castRetry = 0;
     const detail = err && (err.description || err.reason || err.code || JSON.stringify(err));
     showToast('Erreur Cast: ' + (detail || 'inconnue'));
   });
