@@ -342,7 +342,7 @@ input[type=range]::-webkit-slider-thumb{
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-// VERSION: v3 — ajout Worker CORS proxy pour Cast (fix flux bloqués)
+// VERSION: v4 — debug détaillé erreurs Cast (worker confirmé fonctionnel)
 // Same-origin fetch: the HTML is served from the same GitHub Pages repo
 // so no CORS at all. Path relative to this file.
 const PLAYLIST_RELATIVE = 'exotic-tv-playlist.m3u';
@@ -716,7 +716,11 @@ function castCh(ch){
   mi.metadata=new chrome.cast.media.GenericMediaMetadata();
   mi.metadata.title=ch.name;
   if(ch.logo)mi.metadata.images=[{url:ch.logo}];
-  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch(()=>showToast('Erreur Cast — flux non supporté par le récepteur'));
+  castSess.loadMedia(new chrome.cast.media.LoadRequest(mi)).catch((err)=>{
+    console.error('Cast error:', err);
+    const detail = err && (err.description || err.reason || err.code || JSON.stringify(err));
+    showToast('Erreur Cast: ' + (detail || 'inconnue'));
+  });
 }
 
 // ── TOAST ─────────────────────────────────────────────────────
