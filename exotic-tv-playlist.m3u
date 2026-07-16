@@ -10,7 +10,7 @@ https://tvradiozap.eu/tools/ft-m3u8.php/france4.m3u8
 #EXTINF:-1 tvg-id="France5.fr@SD" tvg-name="France 5 (1080p)" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/France_5_2018.svg/960px-France_5_2018.svg.png" group-title="General",France 5 (1080p)
 https://raw.githubusercontent.com/schumijo/iptv/main/playlists/francetv/france5.m3u8
 #EXTINF:-1 tvg-id="M6.fr@SD" tvg-name="M6 HD" tvg-logo="https://i.imgur.com/7GVp3fW.png" group-title="Entertainment",M6 HD
-https://cdn.haititivi.net/M6-HD/index.m3u8
+https://nok.haititivi.net/M6-HD/index.m3u8
 #EXTINF:-1 tvg-id="arte.fr@HD" tvg-name="Arte HD (1080p)" tvg-logo="https://i.imgur.com/ecXMjNl.png" group-title="Entertainment",Arte HD (1080p)
 https://artesimulcast.akamaized.net/hls/live/2031003/artelive_fr/index.m3u8
 #EXTINF:-1 tvg-id="W9.fr@SD" tvg-name="W9 HD" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/w9-fr.png" group-title="Entertainment",W9 HD
