@@ -1,1 +1,6 @@
 .
+#EXTM3U
+#EXTINF:-1 tvg-name="M6" tvg-logo="https://i.imgur.com/7GVp3fW.png",M6
+http://41.205.77.102/M6/index.m3u8
+#EXTINF:-1 tvg-name="M6 HD" tvg-logo="https://i.imgur.com/7GVp3fW.png",M6 HD
+http://151.80.18.177:86/M6_HD/index.m3u8
