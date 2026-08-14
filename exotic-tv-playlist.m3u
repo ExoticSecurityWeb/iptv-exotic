@@ -30,7 +30,7 @@ https://ia801801.us.archive.org/21/items/palmi2/202606101647.ia.mp4
 #EXTINF:-1 tvg-name="Palmi Winter TV ❄️" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Winter TV ❄️
 https://archive.org/download/PalmiWinterTV/Chillout%20Northern%20Lights%20%F0%9F%8C%99%20Aurora%20for%20Deep%20Relaxation%20%20Calm%20Night%20Ambience.mp4
 #EXTINF:-1 tvg-id="CNews.fr@SD" tvg-name="CNews (1080p)" tvg-logo="https://i.imgur.com/sSNhk2g.png" group-title="News",CNews (1080p)
-https://raw.githubusercontent.com/schumijo/iptv/main/playlists/canalplus/cnews.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/canalplus/cnews-dm.m3u8
 #EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
 https://live.eu-north-1a.cf.dmcdn.net/sec2(regdgP4ogAmq7Er4CKMT34U3Eu38qtA4PjeE3lGjgTYHfSOkAlFvMut08JjOddXWNGR02jDwouxpfJ36rKxz1cG_LNkQAwbyFPu33YVUACq6OgSQ9TYV69tTvYIKSx3s)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
 #EXTINF:-1 tvg-id="Gulli.fr@SD" tvg-name="Gulli (720p)" tvg-logo="https://i.imgur.com/kqYssbW.png" group-title="Kids",Gulli (720p)
