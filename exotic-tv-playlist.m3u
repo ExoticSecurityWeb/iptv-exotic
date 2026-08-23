@@ -32,7 +32,7 @@ https://ia801801.us.archive.org/21/items/palmi2/202606101647.ia.mp4
 #EXTINF:-1 tvg-id="CNews.fr@SD" tvg-name="CNews (1080p)" tvg-logo="https://i.imgur.com/sSNhk2g.png" group-title="News",CNews (1080p)
 https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/canalplus/cnews-dm.m3u8
 #EXTINF:-1 tvg-id="CStar.fr@SD" tvg-name="CStar (720p)" tvg-logo="https://i.imgur.com/w4kAX1V.png" group-title="Entertainment",CStar (720p)
-https://live.eu-north-1a.cf.dmcdn.net/sec2(fZtPBx4nd2k-PenvSj_QL1rNa121zOZoA5gdK0JpR02HUjvqB_O1MtriH44EUajXD8DCKUnGEelcuMLdd6ml4x8PJ43zNPxDvbGFZ5fhdTnED6u0NaIQZzEGOsNdsfoR)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
+https://live.eu-north-1a.cf.dmcdn.net/sec2(1MUExjMlhMlVyyM5zamov11kG5fzjARKu5i0_koeAEtr3_XXcr8hsjRoXR_G87h-jI03sVjMAPWWE2bGyUlPbvQuECsSAa1w0RriTdSOwFjG1nWMb56AtAMWz2JuA9IW)/dm/3/x5gv5v0/d/live-1080@60.m3u8#cell=lcf-eu-north-1a
 #EXTINF:-1 tvg-id="Gulli.fr@SD" tvg-name="Gulli (720p)" tvg-logo="https://i.imgur.com/kqYssbW.png" group-title="Kids",Gulli (720p)
 https://origin-drp-m6web.live.6cloud.fr/out/v1/6play/6play-gulli/cmaf_q2hyb21h/hls-short-sd.m3u8
 #EXTINF:-1 tvg-id="NOVO19.fr@HD" tvg-name="NOVO19 (720p) [Geo-Blocked]" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Logo_NOVO19_-_2025.svg/960px-Logo_NOVO19_-_2025.svg.png" group-title="General",NOVO19 (720p) [Geo-Blocked]
