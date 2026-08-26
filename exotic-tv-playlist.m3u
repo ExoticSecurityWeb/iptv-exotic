@@ -18,13 +18,13 @@ http://151.80.18.177:86/W9_HD/index.m3u8
 #EXTINF:-1 tvg-id="TMC.fr@SD" tvg-name="TMC" tvg-logo="https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/tmc-fr.png",TMC
 https://tvradiozap.eu/tools/m3u-m3u8.php/para/tmc.m3u8
 #EXTINF:-1 tvg-id="TFX.fr@SD" tvg-name="TFX (1080p)" tvg-logo="https://i.imgur.com/d91GcVf.png" group-title="Undefined",TFX (1080p)
-https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/ddSshUd7ssE5/FdcbHjd9YXXtXU.m3u8
+https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/MMqrUhx29ZL/Ys11Htcg2L7t3aNQ.m3u8
 #EXTINF:-1 tvg-id="Onepiece.fr@SD" tvg-name="One Piece" tvg-logo="https://upload.wikimedia.org/wikipedia/fr/3/34/One_Piece_%28ja%29_Logo.svg" group-title="PlutoTV",One Piece
 https://jmp2.uk/plu-6380c94947c72b0007ee9a13.m3u8
 #EXTINF:-1 tvg-id="ADNTVPlus.fr@SD" tvg-name="ADN TV+ (720p)" tvg-logo="https://i.imgur.com/HQZQyWt.png" group-title="Animation",ADN TV+ (720p)
 https://d3b73b34o7cvkq.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-gz2sgqzp076kf/adn.m3u8
-#EXTINF:-1 tvg-name="Palmi Océan TV" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Océan TV
-https://archive.org/download/lo-fi-chillout-beach-vibes-2-hours-of-relaxing-ocean-sounds-stunning-seaside-views/🌊%20Lo-Fi%20Chillout%20Be
+#EXTINF:-1 tvg-name="Palmi Automne TV" tvg-logo="https://i.imgur.com/KOCEkZO.png" group-title="PalmiTV",Palmi Automne TV
+https://archive.org/download/palmi-automne/Cozy%20Autumn%20Cabin%20Ambience%20in%20the%20Woods%20%F0%9F%8D%82%20Jazz%20Music%20%26%20Fireplace%20Sounds%20for%20Peaceful%20Sleep.mp4
 #EXTINF:-1 tvg-id="LCI.fr@HD" tvg-name="LCI HD (1080p)" tvg-logo="https://i.imgur.com/DED8EXs.png" group-title="News",LCI HD (1080p)
 https://tvradiozap.eu/tools/tf-m3u8.php/LCI.m3u8
 #EXTINF:-1 tvg-name="Palmi Météo 🌴" tvg-logo="https://i.imgur.com/RPE2EDW_d.png?maxwidth=520&shape=thumb&fidelity=high" group-title="PalmiTV",Palmi Météo 🌴
