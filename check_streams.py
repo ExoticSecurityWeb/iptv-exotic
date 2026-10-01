@@ -1,47 +1,43 @@
 #!/usr/bin/env python3
 """
-Exotic TV — Stream Checker v3
-- Matching iptv-org strict (nom exact uniquement, blacklist IP louches)
-- Timeout plus long pour Archive.org
-- Notifie Discord uniquement pour les vraies URLs mortes
+Exotic TV — Stream Checker v4
+- Plus de cache : playlist + iptv-org rechargées à chaque run (no-cache + timestamp)
+- Remplacements UNIQUES : une même URL n'est jamais proposée deux fois,
+  ni si elle est déjà utilisée par une chaîne vivante de la playlist
+- Vérifie le vrai contenu des .m3u8 (#EXTM3U), pas juste le code HTTP
+- Tests en parallèle + 2e tentative avant de déclarer une chaîne morte
+- Rapport stream-report.json
 """
 
 import os
 import re
+import json
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 M3U_URL         = "https://exoticsecurityweb.github.io/iptv-exotic/exotic-tv-playlist.m3u"
 IPTV_ORG_FR_URL = "https://iptv-org.github.io/iptv/countries/fr.m3u"
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
 TIMEOUT         = 10
-TIMEOUT_ARCHIVE = 20   # Archive.org est plus lent
-SLEEP_BTW       = 0.3
+TIMEOUT_ARCHIVE = 20
+WORKERS         = 10     # tests en parallèle
+RETRIES         = 2      # tentatives avant "mort"
+MAX_ORG_TRIES   = 3      # candidats iptv-org testés par chaîne
+REPORT_FILE     = "stream-report.json"
 
-# IPs blacklistées UNIQUEMENT pour les remplacements auto iptv-org
-# (ces serveurs proposent France 2 pour toutes les chaînes — inutile)
 BLACKLIST_REPLACEMENT_HOSTS = [
     "69.64.57.208",
 ]
 
+UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+
 # ─── BASE DE REMPLACEMENT MANUELLE ───────────────────────────────────────────
-#
-# FORMAT :
-#   "Nom exact de la chaîne dans le M3U": ["url1", "url2", ...]
-#
-# AJOUTER une chaîne :
-#   "Ma Chaîne": ["https://stream.url/playlist.m3u8"],
-#
-# SUPPRIMER une chaîne :
-#   Efface juste la ligne correspondante
-#
-# AJOUTER une URL alternative :
-#   "Ma Chaîne": ["url_principale", "url_backup"],
-#
+# "Nom exact dans le M3U": ["url1", "url2", ...]
+# Une URL déjà utilisée ailleurs (playlist ou autre remplacement) est ignorée.
 REPLACEMENT_DB = {
-    # ── TNT France ────────────────────────────────────────────────────────────
     "TF1 (720p)": [
         "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/tf1/tf1-hd.m3u8",
     ],
@@ -151,12 +147,38 @@ REPLACEMENT_DB = {
     ],
 }
 
+# ─── UTILS ────────────────────────────────────────────────────────────────────
+def now_utc():
+    return datetime.now(timezone.utc)
+
+def fresh_url(url):
+    """Ajoute un paramètre unique pour casser le cache GitHub Pages / raw / CDN"""
+    return url + ('&' if '?' in url else '?') + f"_={int(time.time())}"
+
+def fresh_get(url, timeout=20):
+    """GET sans cache"""
+    return requests.get(
+        fresh_url(url),
+        timeout=timeout,
+        headers={'User-Agent': UA, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+    )
+
+def norm(url):
+    """Forme normalisée d'une URL pour détecter les doublons"""
+    return url.strip().split('#')[0].rstrip('/').lower()
+
+def clean_name(name):
+    """Nom sans suffixes de qualité/geo : 'Arte (720p) [Geo-blocked]' -> 'arte'"""
+    return re.sub(r'\s*[\(\[].*?[\)\]]\s*', ' ', name).strip().lower()
+
+def is_blacklisted(url):
+    return any(host in url for host in BLACKLIST_REPLACEMENT_HOSTS)
+
 # ─── PARSE M3U ────────────────────────────────────────────────────────────────
 def parse_m3u(text):
     channels = []
-    lines = text.strip().split('\n')
     current = None
-    for line in lines:
+    for line in text.strip().split('\n'):
         line = line.strip()
         if line.startswith('#EXTINF'):
             name_m  = re.search(r',([^,]+)$', line)
@@ -164,7 +186,6 @@ def parse_m3u(text):
             group_m = re.search(r'group-title="([^"]*)"', line)
             id_m    = re.search(r'tvg-id="([^"]*)"', line)
             raw_name = name_m.group(1).strip() if name_m else ''
-            # Ignorer les lignes avec nom cassé (User-Agent mélangé)
             if 'Safari/' in raw_name or 'Chrome/' in raw_name or len(raw_name) > 80:
                 current = None
                 continue
@@ -173,7 +194,7 @@ def parse_m3u(text):
                 'logo':   logo_m.group(1) if logo_m else '',
                 'group':  group_m.group(1) if group_m else '',
                 'tvg_id': id_m.group(1) if id_m else '',
-                'url':    ''
+                'url':    '',
             }
         elif line and not line.startswith('#') and current:
             current['url'] = line
@@ -181,52 +202,52 @@ def parse_m3u(text):
             current = None
     return channels
 
-# ─── CHARGER IPTV-ORG FR ─────────────────────────────────────────────────────
+# ─── IPTV-ORG FR ─────────────────────────────────────────────────────────────
 def load_iptv_org_fr():
-    """Charge iptv-org/fr.m3u et retourne un dict nom_exact -> url"""
-    print("📡 Chargement iptv-org/fr.m3u…")
+    """Retourne dict nom_nettoyé -> [urls] (plusieurs candidats par chaîne)"""
+    print("📡 Chargement iptv-org/fr.m3u (sans cache)…")
     try:
-        r = requests.get(IPTV_ORG_FR_URL, timeout=20)
+        r = fresh_get(IPTV_ORG_FR_URL, timeout=20)
         r.raise_for_status()
-        channels = parse_m3u(r.text)
         db = {}
-        for ch in channels:
-            # Index par nom exact (lowercase) uniquement
-            key = ch['name'].lower().strip()
-            if not is_blacklisted(ch['url']):
-                db[key] = ch['url']
+        for ch in parse_m3u(r.text):
+            if not ch['url'] or is_blacklisted(ch['url']):
+                continue
+            db.setdefault(clean_name(ch['name']), []).append(ch['url'])
         print(f"✅ {len(db)} chaînes FR chargées depuis iptv-org\n")
         return db
     except Exception as e:
         print(f"⚠️ Impossible de charger iptv-org : {e}\n")
         return {}
 
-def is_blacklisted(url):
-    """Vérifie si une URL provient d'un hôte blacklisté pour les remplacements auto"""
-    for host in BLACKLIST_REPLACEMENT_HOSTS:
-        if host in url:
-            return True
-    return False
-
 # ─── CHECK URL ────────────────────────────────────────────────────────────────
-def check_url(url, timeout=None):
-    if timeout is None:
-        timeout = TIMEOUT_ARCHIVE if 'archive.org' in url else TIMEOUT
+_check_cache = {}   # évite de retester 2x la même URL dans un run
+
+def _check_once(url, timeout):
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': UA,
         'Accept': '*/*',
+        'Cache-Control': 'no-cache',
         'Origin': 'https://exoticsecurityweb.github.io',
         'Referer': 'https://exoticsecurityweb.github.io/',
     }
+    is_hls = '.m3u8' in url.lower() or '.m3u' in url.lower()
     try:
-        r = requests.head(url, timeout=timeout, headers=headers, allow_redirects=True)
-        if r.status_code < 400:
-            return True, r.status_code, None
+        if not is_hls:
+            r = requests.head(url, timeout=timeout, headers=headers, allow_redirects=True)
+            if r.status_code < 400:
+                return True, r.status_code, None
         r = requests.get(url, timeout=timeout, headers=headers, allow_redirects=True, stream=True)
-        r.close()
-        if r.status_code < 400:
+        try:
+            if r.status_code >= 400:
+                return False, r.status_code, f"HTTP {r.status_code}"
+            if is_hls:
+                head = next(r.iter_content(2048), b'')
+                if b'#EXTM3U' not in head:
+                    return False, r.status_code, "Pas une vraie playlist HLS"
             return True, r.status_code, None
-        return False, r.status_code, f"HTTP {r.status_code}"
+        finally:
+            r.close()
     except requests.exceptions.Timeout:
         return False, 0, "Timeout"
     except requests.exceptions.ConnectionError:
@@ -234,34 +255,51 @@ def check_url(url, timeout=None):
     except Exception as e:
         return False, 0, str(e)[:80]
 
-# ─── TROUVER UN REMPLACEMENT ──────────────────────────────────────────────────
-def find_replacement(channel, iptv_org_db):
-    dead_url = channel['url']
-    name = channel['name']
+def check_url(url, timeout=None):
+    if url in _check_cache:
+        return _check_cache[url]
+    if timeout is None:
+        timeout = TIMEOUT_ARCHIVE if 'archive.org' in url else TIMEOUT
+    result = (False, 0, "?")
+    for attempt in range(RETRIES):
+        result = _check_once(url, timeout)
+        if result[0]:
+            break
+        if attempt < RETRIES - 1:
+            time.sleep(1)
+    _check_cache[url] = result
+    return result
 
-    # 1. REPLACEMENT_DB manuelle par nom exact
-    candidates = REPLACEMENT_DB.get(name, [])
-    for url in candidates:
-        if url.strip() == dead_url.strip():
+# ─── REMPLACEMENT UNIQUE ─────────────────────────────────────────────────────
+def find_replacement(channel, iptv_org_db, used):
+    """
+    `used` = set d'URLs normalisées déjà prises (playlist vivante + remplacements
+    déjà proposés). Un candidat présent dans `used` est ignoré.
+    """
+    own = norm(channel['url'])
+
+    def usable(url):
+        n = norm(url)
+        return n != own and n not in used
+
+    # 1. DB manuelle
+    for url in REPLACEMENT_DB.get(channel['name'], []):
+        if not usable(url):
             continue
         ok, _, _ = check_url(url)
         if ok:
             return url, "DB manuelle"
-        time.sleep(0.3)
 
-    # 2. iptv-org par nom EXACT uniquement (pas de matching approximatif)
-    # Enlève juste les suffixes de qualité pour la comparaison
-    clean_name = re.sub(r'\s*[\(\[].*?[\)\]]\s*', '', name).strip().lower()
-    
-    for org_key, org_url in iptv_org_db.items():
-        org_clean = re.sub(r'\s*[\(\[].*?[\)\]]\s*', '', org_key).strip()
-        if clean_name == org_clean and not is_blacklisted(org_url):
-            if org_url.strip() == dead_url.strip():
-                continue
-            ok, _, _ = check_url(org_url)
-            if ok:
-                return org_url, "iptv-org"
-            time.sleep(0.3)
+    # 2. iptv-org : plusieurs candidats, nom exact (suffixes retirés)
+    tried = 0
+    for url in iptv_org_db.get(clean_name(channel['name']), []):
+        if not usable(url):
+            continue
+        ok, _, _ = check_url(url)
+        tried += 1
+        if ok:
+            return url, "iptv-org"
+        if tried >= MAX_ORG_TRIES:
             break
 
     return None, None
@@ -278,90 +316,108 @@ def send_discord(embeds):
     except Exception as e:
         print(f"❌ Erreur Discord : {e}")
 
+def cut(s, n):
+    s = str(s)
+    return s if len(s) <= n else s[:n - 1] + "…"
+
 def build_embed(channel, error, replacement=None, source=None):
     fields = [
-        {"name": "📂 Groupe", "value": channel['group'] or "—", "inline": True},
-        {"name": "🔴 Erreur", "value": error, "inline": True},
-        {"name": "🔗 URL morte", "value": f"```{channel['url'][:120]}```", "inline": False},
+        {"name": "📂 Groupe", "value": cut(channel['group'] or "—", 1000), "inline": True},
+        {"name": "🔴 Erreur", "value": cut(error, 1000), "inline": True},
+        {"name": "🔗 URL morte", "value": f"```{cut(channel['url'], 900)}```", "inline": False},
     ]
     if replacement:
         fields += [
             {"name": f"✅ Nouvelle URL ({source})",
-             "value": f"```{replacement}```", "inline": False},
+             "value": f"```{cut(replacement, 900)}```", "inline": False},
             {"name": "💡 Comment l'appliquer",
              "value": "[Ouvre l'éditeur M3U](https://exoticsecurityweb.github.io/iptv-exotic/) → clique la chaîne → remplace l'URL → Exporter M3U",
              "inline": False},
         ]
-        color = 0x4ade80
-        icon  = "🔄"
+        color, icon = 0x4ade80, "🔄"
     else:
         fields.append({
             "name": "😓 Aucun remplacement trouvé",
-            "value": "Ni dans la DB manuelle, ni sur iptv-org/fr.",
-            "inline": False
+            "value": "Aucune URL libre et fonctionnelle (DB manuelle / iptv-org/fr).",
+            "inline": False,
         })
-        color = 0xf87171
-        icon  = "💀"
+        color, icon = 0xf87171, "💀"
 
     return {
-        "title": f"{icon} {channel['name']}",
+        "title": cut(f"{icon} {channel['name']}", 250),
         "color": color,
         "fields": fields,
         "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": now_utc().isoformat(),
     }
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
-    now = datetime.utcnow().strftime('%d/%m/%Y à %H:%M UTC')
-    print(f"\n🌴 Exotic TV Stream Checker v3 — {now}")
+    now = now_utc().strftime('%d/%m/%Y à %H:%M UTC')
+    print(f"\n🌴 Exotic TV Stream Checker v4 — {now}")
     print("─" * 60)
 
-    # Charger le M3U
-    print(f"📥 Chargement de la playlist…")
+    print("📥 Chargement de la playlist (sans cache)…")
     try:
-        r = requests.get(M3U_URL, timeout=15)
+        r = fresh_get(M3U_URL, timeout=15)
         r.raise_for_status()
         channels = parse_m3u(r.text)
         print(f"✅ {len(channels)} chaînes trouvées\n")
     except Exception as e:
         print(f"❌ {e}")
-        send_discord([{"title": "❌ Playlist inaccessible", "description": str(e),
+        send_discord([{"title": "❌ Playlist inaccessible", "description": cut(e, 1500),
                        "color": 0xf87171, "footer": {"text": "Exotic TV • Pink Paradise 🌴"}}])
         return
 
-    # Charger iptv-org/fr
     iptv_org_db = load_iptv_org_fr()
 
-    # Tester chaque chaîne
-    alive = []
-    dead  = []
+    # 1) Test de toutes les chaînes en parallèle
+    print(f"🔎 Test en parallèle ({WORKERS} threads)…\n")
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        results = list(ex.map(lambda c: check_url(c['url']), channels))
 
-    for i, ch in enumerate(channels):
-        print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ", end='', flush=True)
-        ok, code, err = check_url(ch['url'])
-
+    alive, dead = [], []
+    for i, (ch, (ok, code, err)) in enumerate(zip(channels, results)):
         if ok:
-            print(f"✅  {code}")
+            print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ✅  {code}")
             alive.append(ch)
         else:
-            print(f"❌  {err}")
-            replacement, source = find_replacement(ch, iptv_org_db)
-            if replacement:
-                print(f"         ↳ 🔄 [{source}] {replacement[:70]}")
-            else:
-                print(f"         ↳ 😓 Aucun remplacement")
-            dead.append({**ch, 'error': err, 'replacement': replacement, 'source': source})
+            print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ❌  {err}")
+            dead.append({**ch, 'error': err, 'replacement': None, 'source': None})
 
-        time.sleep(SLEEP_BTW)
+    # 2) Remplacements uniques : on réserve d'abord toutes les URLs vivantes
+    used = {norm(c['url']) for c in alive}
+    print(f"\n🔄 Recherche de remplacements uniques pour {len(dead)} chaînes…")
+    for d in dead:
+        replacement, source = find_replacement(d, iptv_org_db, used)
+        if replacement:
+            used.add(norm(replacement))
+            d['replacement'], d['source'] = replacement, source
+            print(f"   {d['name'][:40]:<40} ↳ [{source}] {replacement[:60]}")
+        else:
+            print(f"   {d['name'][:40]:<40} ↳ 😓 Aucun remplacement libre")
 
     # Résumé
-    print(f"\n{'─'*60}")
     with_repl = [d for d in dead if d['replacement']]
+    print(f"\n{'─'*60}")
     print(f"✅ Vivantes           : {len(alive)}")
     print(f"❌ Mortes             : {len(dead)}")
     print(f"🔄 Avec remplacement  : {len(with_repl)}")
     print(f"😓 Sans solution      : {len(dead) - len(with_repl)}")
+
+    # Rapport JSON
+    try:
+        with open(REPORT_FILE, 'w', encoding='utf-8') as f:
+            json.dump({
+                'generated_at': now_utc().isoformat(),
+                'total': len(channels),
+                'alive': [{'name': c['name'], 'url': c['url']} for c in alive],
+                'dead': [{'name': d['name'], 'url': d['url'], 'error': d['error'],
+                          'replacement': d['replacement'], 'source': d['source']} for d in dead],
+            }, f, ensure_ascii=False, indent=2)
+        print(f"📝 Rapport : {REPORT_FILE}")
+    except Exception as e:
+        print(f"⚠️ Rapport non écrit : {e}")
 
     # Discord
     if not dead:
@@ -370,11 +426,10 @@ def main():
             "description": f"**{len(alive)}/{len(channels)}** chaînes OK\n{now}",
             "color": 0x4ade80,
             "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now_utc().isoformat(),
         }])
         return
 
-    # Résumé global Discord
     send_discord([{
         "title": "📺 Exotic TV — Rapport de veille",
         "description": (
@@ -384,15 +439,14 @@ def main():
         ),
         "color": 0xf472b6,
         "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": now_utc().isoformat(),
     }])
 
-    # Détail par chaîne morte (4 par message)
     for i in range(0, len(dead), 4):
         batch = dead[i:i+4]
         send_discord([build_embed(ch, ch['error'], ch['replacement'], ch['source']) for ch in batch])
 
-    print(f"\nDiscord notifié ✅")
+    print("\nDiscord notifié ✅")
 
 if __name__ == '__main__':
     main()
