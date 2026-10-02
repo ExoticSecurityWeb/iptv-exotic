@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Exotic TV — Stream Checker v4
+Exotic TV — Stream Checker v5
 - Plus de cache : playlist + iptv-org rechargées à chaque run (no-cache + timestamp)
 - Remplacements UNIQUES : une même URL n'est jamais proposée deux fois,
   ni si elle est déjà utilisée par une chaîne vivante de la playlist
@@ -27,6 +27,19 @@ WORKERS         = 10     # tests en parallèle
 RETRIES         = 2      # tentatives avant "mort"
 MAX_ORG_TRIES   = 3      # candidats iptv-org testés par chaîne
 REPORT_FILE     = "stream-report.json"
+# Codes = le serveur GitHub est refusé (géo/IP/anti-bot) ≠ chaîne morte
+BLOCKED_CODES   = (401, 403, 429, 451)
+
+# Vérification "vue d'ailleurs" (optionnel, via variables d'environnement) :
+#  CHECK_WORKER     = URL de ton Worker Cloudflare de test (worker.js)
+#  CHECK_WORKER_KEY = clé secrète du Worker
+#  CHECK_PROXY      = proxy HTTP/SOCKS pour les tests de flux, ex. socks5h://127.0.0.1:1055
+# Seuls les TESTS DE FLUX passent par là (pas Discord, ni les playlists).
+CHECK_WORKER     = os.environ.get("CHECK_WORKER", "").strip()
+CHECK_WORKER_KEY = os.environ.get("CHECK_WORKER_KEY", "").strip()
+CHECK_PROXY      = os.environ.get("CHECK_PROXY", "").strip()
+PROXIES          = {'http': CHECK_PROXY, 'https': CHECK_PROXY} if CHECK_PROXY else None
+_worker_warned   = False
 
 BLACKLIST_REPLACEMENT_HOSTS = [
     "69.64.57.208",
@@ -223,21 +236,49 @@ def load_iptv_org_fr():
 # ─── CHECK URL ────────────────────────────────────────────────────────────────
 _check_cache = {}   # évite de retester 2x la même URL dans un run
 
-def _check_once(url, timeout):
+def _check_via_worker(url, timeout, browserlike):
+    r = requests.get(
+        CHECK_WORKER,
+        params={'url': url, 'key': CHECK_WORKER_KEY, 'ref': '1' if browserlike else '0'},
+        timeout=timeout + 5,
+    )
+    r.raise_for_status()
+    d = r.json()
+    if d.get('error'):
+        err = str(d['error'])[:80]
+        return False, 0, err
+    st = int(d.get('status', 0))
+    if st >= 400:
+        return False, st, f"HTTP {st}"
+    if d.get('hls') is False:
+        return False, st, "Pas une vraie playlist HLS"
+    return True, st, None
+
+def _check_once(url, timeout, browserlike=True):
+    global _worker_warned
+    if CHECK_WORKER:
+        try:
+            return _check_via_worker(url, timeout, browserlike)
+        except Exception as e:
+            if not _worker_warned:
+                print(f"⚠️ Worker de test injoignable ({str(e)[:60]}) → test direct")
+                _worker_warned = True
     headers = {
         'User-Agent': UA,
         'Accept': '*/*',
         'Cache-Control': 'no-cache',
-        'Origin': 'https://exoticsecurityweb.github.io',
-        'Referer': 'https://exoticsecurityweb.github.io/',
     }
+    if browserlike:
+        headers['Origin'] = 'https://exoticsecurityweb.github.io'
+        headers['Referer'] = 'https://exoticsecurityweb.github.io/'
+
     is_hls = '.m3u8' in url.lower() or '.m3u' in url.lower()
     try:
         if not is_hls:
-            r = requests.head(url, timeout=timeout, headers=headers, allow_redirects=True)
+            r = requests.head(url, timeout=timeout, headers=headers, allow_redirects=True, proxies=PROXIES)
             if r.status_code < 400:
                 return True, r.status_code, None
-        r = requests.get(url, timeout=timeout, headers=headers, allow_redirects=True, stream=True)
+        r = requests.get(url, timeout=timeout, headers=headers, allow_redirects=True, stream=True, proxies=PROXIES)
         try:
             if r.status_code >= 400:
                 return False, r.status_code, f"HTTP {r.status_code}"
@@ -265,8 +306,19 @@ def check_url(url, timeout=None):
         result = _check_once(url, timeout)
         if result[0]:
             break
+        if result[1] in BLOCKED_CODES:
+            break   # inutile de réessayer pareil
         if attempt < RETRIES - 1:
             time.sleep(1)
+    # 403 & co : on retente SANS Origin/Referer (certains serveurs les refusent)
+    if not result[0] and result[1] in BLOCKED_CODES:
+        retry = _check_once(url, timeout, browserlike=False)
+        if retry[0]:
+            result = retry
+        else:
+            # Toujours refusé : le serveur répond, donc l'URL existe.
+            # On ne peut pas conclure "morte" depuis un datacenter (géo/IP).
+            result = (None, result[1], f"HTTP {result[1]} — refusé au serveur (géo/IP), non vérifiable")
     _check_cache[url] = result
     return result
 
@@ -354,8 +406,17 @@ def build_embed(channel, error, replacement=None, source=None):
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
     now = now_utc().strftime('%d/%m/%Y à %H:%M UTC')
-    print(f"\n🌴 Exotic TV Stream Checker v4 — {now}")
+    print(f"\n🌴 Exotic TV Stream Checker v5 — {now}")
     print("─" * 60)
+    mode = "Worker" if CHECK_WORKER else ("Proxy" if CHECK_PROXY else "direct (IP GitHub)")
+    print(f"🛰️  Mode de test des flux : {mode}")
+    if CHECK_WORKER:
+        try:
+            d = requests.get(CHECK_WORKER, params={'key': CHECK_WORKER_KEY, 'info': '1'}, timeout=15).json()
+            print(f"   ↳ Worker : pays {d.get('country', '?')} · IP {d.get('ip', '?')} · "
+                  f"datacenter {d.get('colo', '?')} · {d.get('org', '?')}")
+        except Exception as e:
+            print(f"   ↳ ⚠️ Worker injoignable : {str(e)[:60]}")
 
     print("📥 Chargement de la playlist (sans cache)…")
     try:
@@ -376,17 +437,21 @@ def main():
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         results = list(ex.map(lambda c: check_url(c['url']), channels))
 
-    alive, dead = [], []
+    alive, dead, unknown = [], [], []
     for i, (ch, (ok, code, err)) in enumerate(zip(channels, results)):
         if ok:
             print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ✅  {code}")
             alive.append(ch)
+        elif ok is None:
+            print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ❓  {err}")
+            unknown.append({**ch, 'error': err})
         else:
             print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ❌  {err}")
             dead.append({**ch, 'error': err, 'replacement': None, 'source': None})
 
     # 2) Remplacements uniques : on réserve d'abord toutes les URLs vivantes
-    used = {norm(c['url']) for c in alive}
+    # les "non vérifiables" restent en place (pas de remplacement) et sont réservées
+    used = {norm(c['url']) for c in alive} | {norm(c['url']) for c in unknown}
     print(f"\n🔄 Recherche de remplacements uniques pour {len(dead)} chaînes…")
     for d in dead:
         replacement, source = find_replacement(d, iptv_org_db, used)
@@ -401,6 +466,7 @@ def main():
     with_repl = [d for d in dead if d['replacement']]
     print(f"\n{'─'*60}")
     print(f"✅ Vivantes           : {len(alive)}")
+    print(f"❓ Non vérifiables    : {len(unknown)}  (403/451… on ne touche pas)")
     print(f"❌ Mortes             : {len(dead)}")
     print(f"🔄 Avec remplacement  : {len(with_repl)}")
     print(f"😓 Sans solution      : {len(dead) - len(with_repl)}")
@@ -412,6 +478,7 @@ def main():
                 'generated_at': now_utc().isoformat(),
                 'total': len(channels),
                 'alive': [{'name': c['name'], 'url': c['url']} for c in alive],
+                'unverifiable': [{'name': u['name'], 'url': u['url'], 'error': u['error']} for u in unknown],
                 'dead': [{'name': d['name'], 'url': d['url'], 'error': d['error'],
                           'replacement': d['replacement'], 'source': d['source']} for d in dead],
             }, f, ensure_ascii=False, indent=2)
@@ -423,7 +490,8 @@ def main():
     if not dead:
         send_discord([{
             "title": "✅ Exotic TV — Tout fonctionne !",
-            "description": f"**{len(alive)}/{len(channels)}** chaînes OK\n{now}",
+            "description": f"**{len(alive)}/{len(channels)}** chaînes OK\n"
+                           f"❓ Non vérifiables (403/géo) : **{len(unknown)}**\n{now}",
             "color": 0x4ade80,
             "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
             "timestamp": now_utc().isoformat(),
@@ -434,13 +502,24 @@ def main():
         "title": "📺 Exotic TV — Rapport de veille",
         "description": (
             f"🕐 {now}\n\n"
-            f"✅ OK : **{len(alive)}** | ❌ Mortes : **{len(dead)}**\n"
+            f"✅ OK : **{len(alive)}** | ❌ Mortes : **{len(dead)}** | ❓ Non vérifiables : **{len(unknown)}**\n"
             f"🔄 Avec remplacement : **{len(with_repl)}** | 😓 Sans solution : **{len(dead)-len(with_repl)}**"
         ),
         "color": 0xf472b6,
         "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
         "timestamp": now_utc().isoformat(),
     }])
+
+    if unknown:
+        lines = "\n".join(f"• {u['name']} — {u['error'].split(' — ')[0]}" for u in unknown)
+        send_discord([{
+            "title": "❓ Chaînes non vérifiables depuis GitHub",
+            "description": cut("Le serveur répond mais refuse GitHub (géo/IP). "
+                               "Elles marchent sûrement chez toi : aucun remplacement proposé.\n\n" + lines, 3900),
+            "color": 0xfbbf24,
+            "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
+            "timestamp": now_utc().isoformat(),
+        }])
 
     for i in range(0, len(dead), 4):
         batch = dead[i:i+4]
