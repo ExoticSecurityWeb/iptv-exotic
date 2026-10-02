@@ -372,13 +372,21 @@ def cut(s, n):
     s = str(s)
     return s if len(s) <= n else s[:n - 1] + "…"
 
-def build_embed(channel, error, replacement=None, source=None):
+def build_embed(channel, error, replacement=None, source=None, duplicate_of=None):
     fields = [
         {"name": "📂 Groupe", "value": cut(channel['group'] or "—", 1000), "inline": True},
         {"name": "🔴 Erreur", "value": cut(error, 1000), "inline": True},
         {"name": "🔗 URL morte", "value": f"```{cut(channel['url'], 900)}```", "inline": False},
     ]
-    if replacement:
+    if duplicate_of:
+        fields.append({
+            "name": "♻️ Doublon dans la playlist",
+            "value": cut(f"Une autre entrée « {duplicate_of} » fonctionne déjà. "
+                         "Supprime cette ligne, ou renomme-la si son URL correspond à une autre chaîne.", 1000),
+            "inline": False,
+        })
+        color, icon = 0x94a3b8, "♻️"
+    elif replacement:
         fields += [
             {"name": f"✅ Nouvelle URL ({source})",
              "value": f"```{cut(replacement, 900)}```", "inline": False},
@@ -447,85 +455,21 @@ def main():
             unknown.append({**ch, 'error': err})
         else:
             print(f"[{i+1:3}/{len(channels)}] {ch['name']:<42} ❌  {err}")
-            dead.append({**ch, 'error': err, 'replacement': None, 'source': None})
+            dead.append({**ch, 'error': err, 'replacement': None, 'source': None, 'duplicate_of': None})
 
     # 2) Remplacements uniques : on réserve d'abord toutes les URLs vivantes
     # les "non vérifiables" restent en place (pas de remplacement) et sont réservées
     used = {norm(c['url']) for c in alive} | {norm(c['url']) for c in unknown}
     print(f"\n🔄 Recherche de remplacements uniques pour {len(dead)} chaînes…")
+    # Doublon : une entrée du même nom fonctionne déjà → pas de remplacement à chercher
+    alive_names = {clean_name(c['name']): c['name'] for c in alive}
     for d in dead:
+        twin = alive_names.get(clean_name(d['name']))
+        if twin:
+            d['duplicate_of'] = twin
+            print(f"   {d['name'][:40]:<40} ↳ ♻️ doublon de « {twin[:30]} » (OK)")
+            continue
         replacement, source = find_replacement(d, iptv_org_db, used)
         if replacement:
             used.add(norm(replacement))
-            d['replacement'], d['source'] = replacement, source
-            print(f"   {d['name'][:40]:<40} ↳ [{source}] {replacement[:60]}")
-        else:
-            print(f"   {d['name'][:40]:<40} ↳ 😓 Aucun remplacement libre")
-
-    # Résumé
-    with_repl = [d for d in dead if d['replacement']]
-    print(f"\n{'─'*60}")
-    print(f"✅ Vivantes           : {len(alive)}")
-    print(f"❓ Non vérifiables    : {len(unknown)}  (403/451… on ne touche pas)")
-    print(f"❌ Mortes             : {len(dead)}")
-    print(f"🔄 Avec remplacement  : {len(with_repl)}")
-    print(f"😓 Sans solution      : {len(dead) - len(with_repl)}")
-
-    # Rapport JSON
-    try:
-        with open(REPORT_FILE, 'w', encoding='utf-8') as f:
-            json.dump({
-                'generated_at': now_utc().isoformat(),
-                'total': len(channels),
-                'alive': [{'name': c['name'], 'url': c['url']} for c in alive],
-                'unverifiable': [{'name': u['name'], 'url': u['url'], 'error': u['error']} for u in unknown],
-                'dead': [{'name': d['name'], 'url': d['url'], 'error': d['error'],
-                          'replacement': d['replacement'], 'source': d['source']} for d in dead],
-            }, f, ensure_ascii=False, indent=2)
-        print(f"📝 Rapport : {REPORT_FILE}")
-    except Exception as e:
-        print(f"⚠️ Rapport non écrit : {e}")
-
-    # Discord
-    if not dead:
-        send_discord([{
-            "title": "✅ Exotic TV — Tout fonctionne !",
-            "description": f"**{len(alive)}/{len(channels)}** chaînes OK\n"
-                           f"❓ Non vérifiables (403/géo) : **{len(unknown)}**\n{now}",
-            "color": 0x4ade80,
-            "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
-            "timestamp": now_utc().isoformat(),
-        }])
-        return
-
-    send_discord([{
-        "title": "📺 Exotic TV — Rapport de veille",
-        "description": (
-            f"🕐 {now}\n\n"
-            f"✅ OK : **{len(alive)}** | ❌ Mortes : **{len(dead)}** | ❓ Non vérifiables : **{len(unknown)}**\n"
-            f"🔄 Avec remplacement : **{len(with_repl)}** | 😓 Sans solution : **{len(dead)-len(with_repl)}**"
-        ),
-        "color": 0xf472b6,
-        "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
-        "timestamp": now_utc().isoformat(),
-    }])
-
-    if unknown:
-        lines = "\n".join(f"• {u['name']} — {u['error'].split(' — ')[0]}" for u in unknown)
-        send_discord([{
-            "title": "❓ Chaînes non vérifiables depuis GitHub",
-            "description": cut("Le serveur répond mais refuse GitHub (géo/IP). "
-                               "Elles marchent sûrement chez toi : aucun remplacement proposé.\n\n" + lines, 3900),
-            "color": 0xfbbf24,
-            "footer": {"text": "Exotic TV Stream Checker • Pink Paradise 🌴"},
-            "timestamp": now_utc().isoformat(),
-        }])
-
-    for i in range(0, len(dead), 4):
-        batch = dead[i:i+4]
-        send_discord([build_embed(ch, ch['error'], ch['replacement'], ch['source']) for ch in batch])
-
-    print("\nDiscord notifié ✅")
-
-if __name__ == '__main__':
-    main()
+            d['replacement'], d['source'] = r
