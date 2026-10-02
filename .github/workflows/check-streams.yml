@@ -26,4 +26,14 @@ jobs:
       - name: 🔍 Check streams & notify Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          CHECK_WORKER: ${{ secrets.CHECK_WORKER }}
+          CHECK_WORKER_KEY: ${{ secrets.CHECK_WORKER_KEY }}
         run: python check_streams.py
+
+      - name: 📝 Rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-report
+          path: stream-report.json
+          if-no-files-found: ignore
