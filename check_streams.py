@@ -418,12 +418,19 @@ def main():
     print("─" * 60)
     mode = "Worker" if CHECK_WORKER else ("Proxy" if CHECK_PROXY else "direct (IP GitHub)")
     print(f"🛰️  Mode de test des flux : {mode}")
+    net_line = f"🛰️ Test via : {mode}"          # affiché aussi dans le message Discord
     if CHECK_WORKER:
         try:
             d = requests.get(CHECK_WORKER, params={'key': CHECK_WORKER_KEY, 'info': '1'}, timeout=15).json()
-            print(f"   ↳ Worker : pays {d.get('country', '?')} · IP {d.get('ip', '?')} · "
-                  f"datacenter {d.get('colo', '?')} · {d.get('org', '?')}")
+            if d.get('error') == 'forbidden':
+                net_line = "🛰️ Worker : clé refusée (KEY du Worker ≠ CHECK_WORKER_KEY) → test direct"
+                print(f"   ↳ ⚠️ {net_line}")
+            else:
+                print(f"   ↳ Worker : pays {d.get('country', '?')} · IP {d.get('ip', '?')} · "
+                      f"datacenter {d.get('colo', '?')} · {d.get('org', '?')}")
+                net_line = f"🛰️ Test via : Worker · pays {d.get('country', '?')} · datacenter {d.get('colo', '?')}"
         except Exception as e:
+            net_line = "🛰️ Worker injoignable → test direct (IP GitHub)"
             print(f"   ↳ ⚠️ Worker injoignable : {str(e)[:60]}")
 
     print("📥 Chargement de la playlist (sans cache)…")
@@ -461,15 +468,4 @@ def main():
     # les "non vérifiables" restent en place (pas de remplacement) et sont réservées
     used = {norm(c['url']) for c in alive} | {norm(c['url']) for c in unknown}
     print(f"\n🔄 Recherche de remplacements uniques pour {len(dead)} chaînes…")
-    # Doublon : une entrée du même nom fonctionne déjà → pas de remplacement à chercher
-    alive_names = {clean_name(c['name']): c['name'] for c in alive}
-    for d in dead:
-        twin = alive_names.get(clean_name(d['name']))
-        if twin:
-            d['duplicate_of'] = twin
-            print(f"   {d['name'][:40]:<40} ↳ ♻️ doublon de « {twin[:30]} » (OK)")
-            continue
-        replacement, source = find_replacement(d, iptv_org_db, used)
-        if replacement:
-            used.add(norm(replacement))
-            d['replacement'], d['source'] = r
+    # Doublon : une entrée du même nom fonctionne déjà → pas de r
