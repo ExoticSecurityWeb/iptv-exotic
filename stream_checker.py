@@ -426,9 +426,12 @@ def main():
                 net_line = "🛰️ Worker : clé refusée (KEY du Worker ≠ CHECK_WORKER_KEY) → test direct"
                 print(f"   ↳ ⚠️ {net_line}")
             else:
-                print(f"   ↳ Worker : pays {d.get('country', '?')} · IP {d.get('ip', '?')} · "
-                      f"datacenter {d.get('colo', '?')} · {d.get('org', '?')}")
-                net_line = f"🛰️ Test via : Worker · pays {d.get('country', '?')} · datacenter {d.get('colo', '?')}"
+                run_colo, edge = d.get('colo') or '?', d.get('edge') or '?'
+                plc, ctry = d.get('placement') or 'aucun', d.get('country') or '?'
+                print(f"   ↳ Worker : exécuté à {run_colo} ({ctry}) · entrée {edge} · "
+                      f"placement {plc} · IP {d.get('ip') or '?'}")
+                net_line = (f"🛰️ Test via : Worker · exécuté à {run_colo} ({ctry}) · "
+                            f"entrée {edge} · placement {plc}")
         except Exception as e:
             net_line = "🛰️ Worker injoignable → test direct (IP GitHub)"
             print(f"   ↳ ⚠️ Worker injoignable : {str(e)[:60]}")
