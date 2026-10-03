@@ -14,6 +14,20 @@ const json = (o, status = 200) =>
     headers: { 'content-type': 'application/json', ...CORS },
   });
 
+async function probe(target, headers, ms) {
+  const r = await fetch(target, { headers, redirect: 'follow', signal: AbortSignal.timeout(ms) });
+  let hls = null;
+  if (/\.m3u8?(\?|$)/i.test(target) && r.status < 400 && r.body) {
+    const reader = r.body.getReader();
+    const { value } = await reader.read();
+    hls = new TextDecoder().decode(value || new Uint8Array()).includes('#EXTM3U');
+    await reader.cancel();
+  } else if (r.body) {
+    await r.body.cancel();
+  }
+  return { status: r.status, hls };
+}
+
 export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -48,24 +62,35 @@ export default {
     const target = u.searchParams.get('url') || '';
     if (!/^https?:\/\//i.test(target)) return json({ error: 'URL invalide' }, 400);
 
-    const headers = { 'User-Agent': UA, Accept: '*/*', 'Cache-Control': 'no-cache' };
+    // 1) navigateur (avec ou sans Origin/Referer), 2) si 401/403/429/451 : on réessaie
+    //    avec des User-Agent de vrais lecteurs (VLC, Kodi, okhttp) — certains serveurs n'acceptent que ça.
+    const base = { Accept: '*/*', 'Cache-Control': 'no-cache' };
+    const first = { ...base, 'User-Agent': UA };
     if (u.searchParams.get('ref') !== '0') {
-      headers.Origin = 'https://exoticsecurityweb.github.io';
-      headers.Referer = 'https://exoticsecurityweb.github.io/';
+      first.Origin = 'https://exoticsecurityweb.github.io';
+      first.Referer = 'https://exoticsecurityweb.github.io/';
     }
+    const tries = [
+      ['navigateur', first],
+      ['vlc', { ...base, 'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20' }],
+      ['kodi', { ...base, 'User-Agent': 'Kodi/21.0 (Linux; Android 13) ExoPlayerLib/2.18.7' }],
+      ['okhttp', { ...base, 'User-Agent': 'okhttp/4.12.0' }],
+    ];
 
     try {
-      const r = await fetch(target, { headers, redirect: 'follow', signal: AbortSignal.timeout(9000) });
-      let hls = null;
-      if (/\.m3u8?(\?|$)/i.test(target) && r.status < 400 && r.body) {
-        const reader = r.body.getReader();
-        const { value } = await reader.read();
-        hls = new TextDecoder().decode(value || new Uint8Array()).includes('#EXTM3U');
-        await reader.cancel();
-      } else if (r.body) {
-        await r.body.cancel();
+      let last = null;
+      let used = 0;
+      for (let i = 0; i < tries.length; i++) {
+        try {
+          last = await probe(target, tries[i][1], i === 0 ? 8000 : 4000);
+          used = i;
+        } catch (e) {
+          if (i === 0) throw e;
+          break;
+        }
+        if (![401, 403, 429, 451].includes(last.status)) break;
       }
-      return json({ status: r.status, hls });
+      return json({ ...last, via: last.status < 400 && used > 0 ? tries[used][0] : null });
     } catch (e) {
       const msg = String(e && e.name) === 'TimeoutError' ? 'Timeout' : 'Connexion impossible';
       return json({ error: msg });
