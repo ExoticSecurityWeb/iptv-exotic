@@ -21,16 +21,28 @@ export default {
     const u = new URL(req.url);
     if (!env.KEY || u.searchParams.get('key') !== env.KEY) return json({ error: 'forbidden' }, 403);
 
-    // ?info=1 → d'où sort le Worker (datacenter = code aéroport : CDG/MRS = France, IAD = Washington)
+    // ?info=1 → où le Worker S'EXÉCUTE vraiment (colo = code aéroport : CDG/MRS = France)
+    // edge = datacenter d'entrée de la requête ; avec un placement actif, colo ≠ edge.
     if (u.searchParams.get('info') === '1') {
-      const colo = req.cf && req.cf.colo;
+      const edge = req.cf && req.cf.colo;
       const placement = req.headers.get('cf-placement') || null;
+      const out = { edge, placement, colo: null, country: null, ip: null };
       try {
-        const i = await (await fetch('https://ipinfo.io/json', { headers: { 'User-Agent': UA } })).json();
-        return json({ country: i.country, ip: i.ip, org: i.org, colo, placement });
-      } catch (e) {
-        return json({ error: 'info indisponible', colo, placement });
+        const t = await (await fetch('https://www.cloudflare.com/cdn-cgi/trace', { headers: { 'User-Agent': UA } })).text();
+        const kv = Object.fromEntries(t.trim().split('\n').map((l) => l.split('=')));
+        out.colo = kv.colo || null;
+        out.country = kv.loc || null;
+        out.ip = kv.ip || null;
+      } catch (e) {}
+      if (!out.country) {
+        try {
+          const i = await (await fetch('https://ipinfo.io/json', { headers: { 'User-Agent': UA } })).json();
+          out.country = i.country || null;
+          out.ip = out.ip || i.ip || null;
+        } catch (e) {}
       }
+      if (!out.colo) out.colo = edge;
+      return json(out);
     }
 
     const target = u.searchParams.get('url') || '';
